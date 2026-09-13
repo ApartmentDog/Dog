@@ -145,6 +145,8 @@ fun TodayScreen() {
                 "LOG" -> TabLogView(
                     mealSlots = MEAL_SLOTS,
                     activeMeal = activeMeal,
+                    dayEntries = entries,
+                    calorieTarget = profile?.calorieTarget() ?: 2000,
                     entries = mealEntries,
                     selectedEntry = selectedEntry,
                     fatWarnGrams = fatLimit,

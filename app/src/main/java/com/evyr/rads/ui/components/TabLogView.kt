@@ -2,6 +2,7 @@ package com.evyr.rads.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +28,8 @@ import com.evyr.rads.ui.theme.*
 fun TabLogView(
     mealSlots: List<String>,
     activeMeal: String,
+    dayEntries: List<FoodLogEntry>,
+    calorieTarget: Int,
     entries: List<FoodLogEntry>,
     selectedEntry: FoodLogEntry?,
     fatWarnGrams: Double,
@@ -36,6 +39,73 @@ fun TabLogView(
     onDeleteEntry: (FoodLogEntry) -> Unit
 ) {
     Column(Modifier.fillMaxWidth()) {
+
+        // ---- Whole-day totals ----
+        val dayCals = dayEntries.sumOf { it.calories }
+        val dayFat = dayEntries.sumOf { it.fatGrams }
+        val dayProtein = dayEntries.sumOf { it.proteinGrams }
+        val dayCarbs = dayEntries.sumOf { it.carbGrams }
+        val remaining = calorieTarget - dayCals
+
+        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+            Text(
+                "TODAY",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 9.sp,
+                color = AmberFaint,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                if (remaining >= 0) "$remaining LEFT" else "${-remaining} OVER",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 9.sp,
+                color = if (remaining >= 0) AmberFaint else AmberWarn
+            )
+        }
+
+        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+            Text(
+                "$dayCals",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (remaining >= 0) AmberBright else AmberWarn
+            )
+            Text(
+                " / $calorieTarget kcal",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                color = AmberDim,
+                modifier = Modifier.padding(top = 7.dp)
+            )
+        }
+
+        // Calorie progress for the day
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .background(ScreenInk)
+        ) {
+            val pct =
+                if (calorieTarget > 0) (dayCals.toFloat() / calorieTarget).coerceIn(0f, 1f)
+                else 0f
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(pct)
+                    .height(8.dp)
+                    .background(if (remaining >= 0) Amber else AmberWarn)
+            )
+        }
+
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp)) {
+            DayMacro("PROTEIN", "${trim(dayProtein)}g", Modifier.weight(1f))
+            DayMacro("CARBS", "${trim(dayCarbs)}g", Modifier.weight(1f))
+            DayMacro("FAT", "${trim(dayFat)}g", Modifier.weight(1f))
+        }
+
+        Hairline()
+        Spacer(Modifier.height(8.dp))
 
         // Meal slot selector
         Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
@@ -136,6 +206,25 @@ fun TabLogView(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DayMacro(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(
+            label,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 8.sp,
+            color = AmberFaint
+        )
+        Text(
+            value,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = Amber
+        )
     }
 }
 
