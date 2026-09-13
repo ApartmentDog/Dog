@@ -91,12 +91,24 @@ fun TerminalChrome(
                     .fillMaxWidth()
                     .padding(horizontal = 10.dp)
             ) {
-                ScrollWheel(
-                    progress = scrollProgress,
+                Column(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .padding(vertical = 6.dp)
-                )
+                        .padding(vertical = 6.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Activity lamp, above the wheel
+                    Led(color = LedAmber, modifier = Modifier.padding(bottom = 10.dp))
+
+                    ScrollWheel(
+                        progress = scrollProgress,
+                        modifier = Modifier.height(150.dp)
+                    )
+
+                    // Power lamp, below the wheel
+                    Led(color = LedGreen, modifier = Modifier.padding(top = 10.dp))
+                }
 
                 Spacer(Modifier.width(8.dp))
 
@@ -280,6 +292,38 @@ private fun VentBank(
                 )
             }
         }
+    }
+}
+
+/** Small panel indicator lamp, the kind on an old desktop front panel. */
+@Composable
+private fun Led(color: Color, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(14.dp)
+            .background(
+                Brush.verticalGradient(listOf(SandShadow, SandDeep)),
+                CircleShape
+            )
+            .padding(3.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.85f),
+                            color,
+                            color.copy(alpha = 0.55f)
+                        ),
+                        center = Offset(4f, 3f),
+                        radius = 18f
+                    ),
+                    shape = CircleShape
+                )
+        )
     }
 }
 

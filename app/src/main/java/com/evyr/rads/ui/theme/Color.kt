@@ -31,3 +31,7 @@ val ScrewDark = Color(0xFF5A4E38)
 val GrimeRust = Color(0x33704818)
 val ButtonUnlit = Color(0xFF4A4234)
 val ButtonUnlitDeep = Color(0xFF241E16)
+
+// --- Panel indicator lamps ---
+val LedGreen = Color(0xFF4CE04C)
+val LedAmber = Color(0xFFE8B020)
