@@ -1,34 +1,60 @@
 package com.evyr.rads.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.evyr.rads.data.local.FoodLogEntry
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.evyr.rads.health.HealthConnectManager
 import com.evyr.rads.ui.Screen
+import com.evyr.rads.ui.TodayViewModel
+import com.evyr.rads.ui.components.AddEntryDialog
 import com.evyr.rads.ui.components.MealTab
 import com.evyr.rads.ui.components.TerminalButtonSpec
 import com.evyr.rads.ui.components.TerminalChrome
 import com.evyr.rads.ui.components.TerminalLogScreen
 
+private val MEAL_SLOTS = listOf("breakfast", "lunch", "dinner", "snack")
+
 @Composable
 fun TodayScreen(onNavigate: (Screen) -> Unit) {
-    // Placeholder data until wired to Room + ViewModel.
-    val sampleEntries = remember {
-        listOf(
-            FoodLogEntry(id = 1, timestamp = 0L, mealSlot = "breakfast", name = "Oatmeal + berries", calories = 310, fatGrams = 6.0, proteinGrams = 11.0, carbGrams = 48.0, source = "manual"),
-            FoodLogEntry(id = 2, timestamp = 0L, mealSlot = "breakfast", name = "Scrambled eggs (2)", calories = 180, fatGrams = 12.0, proteinGrams = 14.0, carbGrams = 2.0, source = "manual"),
-        )
+    val vm: TodayViewModel = viewModel()
+    val context = LocalContext.current
+
+    val allEntries by vm.entries.collectAsState()
+    val health by vm.healthToday.collectAsState()
+    val selectedId by vm.selectedEntryId.collectAsState()
+    val syncStatus by vm.syncStatus.collectAsState()
+
+    var activeMeal by remember { mutableStateOf("breakfast") }
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    val healthManager = remember { HealthConnectManager(context) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = healthManager.permissionContract()
+    ) { vm.sync() }
+
+    val visibleEntries = allEntries.filter { it.mealSlot == activeMeal }
+    val selectedEntry = allEntries.firstOrNull { it.id == selectedId }
+
+    val syncLabel = when (syncStatus) {
+        TodayViewModel.SyncStatus.IDLE -> "READY"
+        TodayViewModel.SyncStatus.SYNCING -> "..."
+        TodayViewModel.SyncStatus.OK -> "OK"
+        TodayViewModel.SyncStatus.UNAVAILABLE -> "N/A"
+        TodayViewModel.SyncStatus.NO_PERMISSION -> "DENIED"
+        TodayViewModel.SyncStatus.ERROR -> "ERR"
     }
-    var selected by remember { mutableStateOf<FoodLogEntry?>(sampleEntries.firstOrNull()) }
-    var activeButton by remember { mutableStateOf("LOG") }
 
     Box(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -36,22 +62,37 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
     ) {
         TerminalChrome(
             buttons = listOf(
-                TerminalButtonSpec("LOG", selected = activeButton == "LOG", onClick = { activeButton = "LOG" }),
-                TerminalButtonSpec("SCAN", selected = activeButton == "SCAN", onClick = { activeButton = "SCAN"; onNavigate(Screen.SCAN) }),
-                TerminalButtonSpec("SYNC", selected = activeButton == "SYNC", onClick = { activeButton = "SYNC"; onNavigate(Screen.HEALTH_SYNC) }),
+                TerminalButtonSpec("LOG", selected = true) { showAddDialog = true },
+                TerminalButtonSpec("SCAN", selected = false) { onNavigate(Screen.SCAN) },
+                TerminalButtonSpec("SYNC", selected = false) {
+                    if (healthManager.isAvailable()) {
+                        permissionLauncher.launch(healthManager.permissions)
+                    } else {
+                        vm.sync()
+                    }
+                },
             )
         ) {
             TerminalLogScreen(
-                mealTabs = listOf(
-                    MealTab("BREAKFAST", selected = true),
-                    MealTab("LUNCH", selected = false),
-                    MealTab("DINNER", selected = false),
-                    MealTab("SNACK", selected = false),
-                ),
-                entries = sampleEntries,
-                selectedEntry = selected,
-                onSelectEntry = { selected = it }
+                mealTabs = MEAL_SLOTS.map { MealTab(it.uppercase(), selected = it == activeMeal) },
+                entries = visibleEntries,
+                selectedEntry = selectedEntry,
+                health = health,
+                syncLabel = syncLabel,
+                onSelectMeal = { activeMeal = it },
+                onSelectEntry = { vm.selectEntry(it.id) }
             )
         }
+    }
+
+    if (showAddDialog) {
+        AddEntryDialog(
+            mealSlot = activeMeal,
+            onDismiss = { showAddDialog = false },
+            onConfirm = { name, cal, fat, protein, carbs ->
+                vm.addEntry(name, activeMeal, cal, fat, protein, carbs)
+                showAddDialog = false
+            }
+        )
     }
 }

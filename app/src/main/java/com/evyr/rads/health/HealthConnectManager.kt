@@ -3,31 +3,33 @@ package com.evyr.rads.health
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
-import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
-import androidx.health.connect.client.records.HeartRateRecord
-import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
-import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
-import java.time.Instant
+import java.time.Duration
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
- * Wraps Health Connect access. This is Kindly's replacement for talking to
- * Samsung Health directly — Samsung Health writes into Health Connect, and
- * we read from Health Connect only. No Samsung SDK dependency anywhere.
+ * Reads health data from Health Connect. Samsung Health (and the Galaxy Watch
+ * feeding it) writes into Health Connect; we only ever read from Health Connect.
+ * No Samsung SDK dependency anywhere.
  */
 class HealthConnectManager(private val context: Context) {
+
+    data class DailyHealth(
+        val steps: Long,
+        val weightKg: Double?,
+        val exerciseMinutes: Long
+    )
 
     val permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(WeightRecord::class),
-        HealthPermission.getReadPermission(HeartRateRecord::class),
-        HealthPermission.getReadPermission(SleepSessionRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
     )
 
     fun isAvailable(): Boolean =
@@ -37,47 +39,48 @@ class HealthConnectManager(private val context: Context) {
         HealthConnectClient.getOrCreate(context)
     }
 
+    fun permissionContract() = PermissionController.createRequestPermissionResultContract()
+
     suspend fun hasAllPermissions(): Boolean {
-        val granted = client.permissionController.getGrantedPermissions()
-        return granted.containsAll(permissions)
+        if (!isAvailable()) return false
+        return client.permissionController.getGrantedPermissions().containsAll(permissions)
     }
 
-    fun requestPermissionsContract() =
-        PermissionController.createRequestPermissionResultContract()
+    /** Reads today's steps, latest weight, and total exercise minutes. */
+    suspend fun readToday(): DailyHealth {
+        val zone = ZoneId.systemDefault()
+        val startOfDay = LocalDate.now(zone).atStartOfDay(zone).toInstant()
+        val now = java.time.Instant.now()
 
-    suspend fun readLatestWeight(): WeightRecord? {
-        val now = Instant.now()
-        val thirtyDaysAgo = now.minusSeconds(60L * 60 * 24 * 30)
-        val response = client.readRecords(
-            ReadRecordsRequest(
-                recordType = WeightRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(thirtyDaysAgo, now)
-            )
-        )
-        return response.records.maxByOrNull { it.time }
-    }
-
-    suspend fun readStepsToday(): Long {
-        val now = Instant.now()
-        val startOfDay = now.minusSeconds(now.epochSecond % 86400)
-        val response = client.readRecords(
+        val steps = client.readRecords(
             ReadRecordsRequest(
                 recordType = StepsRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(startOfDay, now)
             )
-        )
-        return response.records.sumOf { it.count }
-    }
+        ).records.sumOf { it.count }
 
-    suspend fun readExerciseSessionsToday(): List<ExerciseSessionRecord> {
-        val now = Instant.now()
-        val startOfDay = now.minusSeconds(now.epochSecond % 86400)
-        val response = client.readRecords(
+        // Weight is sampled infrequently, so look back 30 days for the latest.
+        val weight = client.readRecords(
+            ReadRecordsRequest(
+                recordType = WeightRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(
+                    startOfDay.minus(Duration.ofDays(30)),
+                    now
+                )
+            )
+        ).records.maxByOrNull { it.time }?.weight?.inKilograms
+
+        val exerciseMinutes = client.readRecords(
             ReadRecordsRequest(
                 recordType = ExerciseSessionRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(startOfDay, now)
             )
+        ).records.sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }
+
+        return DailyHealth(
+            steps = steps,
+            weightKg = weight,
+            exerciseMinutes = exerciseMinutes
         )
-        return response.records
     }
 }
