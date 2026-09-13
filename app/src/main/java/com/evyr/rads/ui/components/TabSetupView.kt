@@ -26,6 +26,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.ui.theme.*
@@ -138,6 +144,29 @@ fun TabSetupView(
         EditNumber("GRAMS", trim(p.fatWarnGramsPerMeal)) { v ->
             v.toDoubleOrNull()?.let { onUpdate(p.copy(fatWarnGramsPerMeal = it)) }
         }
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
+        SectionLabel("AI FOOD DETECTION")
+        Text(
+            "Optional. Barcode scanning works without this. A Gemini API key enables photo estimates for plates and menus.",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 8.sp,
+            color = AmberFaint,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        val ctx = LocalContext.current
+        var apiKey by remember { mutableStateOf(SecureStore.geminiKey(ctx)) }
+        var model by remember { mutableStateOf(SecureStore.geminiModel(ctx)) }
+        EditField("API KEY", apiKey) {
+            apiKey = it
+            SecureStore.setGeminiKey(ctx, it)
+        }
+        EditField("MODEL", model) {
+            model = it
+            SecureStore.setGeminiModel(ctx, it)
+        }
+        StatRow("AI STATUS", if (apiKey.isNotBlank()) "ENABLED" else "OFF")
 
         Spacer(Modifier.height(4.dp))
         Hairline()

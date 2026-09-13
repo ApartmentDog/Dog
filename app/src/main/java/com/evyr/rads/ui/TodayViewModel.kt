@@ -3,7 +3,13 @@ package com.evyr.rads.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.evyr.rads.data.ScannedFood
+import com.evyr.rads.data.SecureStore
+import com.evyr.rads.data.VerdictResult
+import com.evyr.rads.data.VerdictRules
 import com.evyr.rads.data.local.DatabaseProvider
+import com.evyr.rads.data.remote.GeminiVision
+import com.evyr.rads.data.remote.OpenFoodFacts
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.data.local.HealthSnapshot
 import com.evyr.rads.data.local.UserProfile
@@ -54,6 +60,97 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
 
     enum class SyncStatus { IDLE, SYNCING, OK, UNAVAILABLE, NO_PERMISSION, ERROR }
+
+    // ---- Scanning ----
+
+    sealed class ScanState {
+        object Idle : ScanState()
+        data class Working(val message: String) : ScanState()
+        data class Message(val text: String) : ScanState()
+        data class Choose(val foods: List<ScannedFood>) : ScanState()
+        data class Assess(val food: ScannedFood, val verdict: VerdictResult) : ScanState()
+    }
+
+    private val _scanState = MutableStateFlow<ScanState>(ScanState.Idle)
+    val scanState: StateFlow<ScanState> = _scanState.asStateFlow()
+
+    fun clearScan() { _scanState.value = ScanState.Idle }
+
+    fun aiEnabled(): Boolean = SecureStore.hasGeminiKey(getApplication<Application>())
+
+    fun onBarcodeScanned(barcode: String) {
+        viewModelScope.launch {
+            _scanState.value = ScanState.Working("LOOKING UP $barcode...")
+            when (val r = OpenFoodFacts.lookup(barcode)) {
+                is OpenFoodFacts.Result.Found -> assess(r.food)
+                is OpenFoodFacts.Result.NotFound ->
+                    _scanState.value = ScanState.Message(
+                        "Barcode ${r.barcode} isn't in the database.\n\nEnter it manually instead."
+                    )
+                is OpenFoodFacts.Result.Failed ->
+                    _scanState.value = ScanState.Message(r.message)
+            }
+        }
+    }
+
+    fun onPhotoCaptured(bytes: ByteArray) {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val key = SecureStore.geminiKey(ctx)
+            if (key.isBlank()) {
+                _scanState.value = ScanState.Message("No Gemini API key set. Add one in SETUP.")
+                return@launch
+            }
+            _scanState.value = ScanState.Working("ANALYSING IMAGE...")
+            when (val r = GeminiVision.analyze(key, SecureStore.geminiModel(ctx), bytes)) {
+                is GeminiVision.Result.Found ->
+                    if (r.foods.size == 1) assess(r.foods.first())
+                    else _scanState.value = ScanState.Choose(r.foods)
+                is GeminiVision.Result.Failed ->
+                    _scanState.value = ScanState.Message(r.message)
+            }
+        }
+    }
+
+    /** Judge a candidate against what's already in the target meal. */
+    fun assess(food: ScannedFood, mealSlot: String? = null) {
+        viewModelScope.launch {
+            val slot = mealSlot ?: activeMealSlot
+            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: 15.0
+            val already = entries.value
+                .filter { it.mealSlot == slot }
+                .sumOf { it.fatGrams }
+            _scanState.value = ScanState.Assess(
+                food,
+                VerdictRules.evaluate(food, already, limit)
+            )
+        }
+    }
+
+    /** The meal slot the UI is currently showing, so scans land in the right place. */
+    var activeMealSlot: String = "breakfast"
+
+    fun commitScanned(food: ScannedFood, mealSlot: String) {
+        viewModelScope.launch {
+            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: 15.0
+            val over = food.fatGrams >= limit
+            foodDao.insert(
+                FoodLogEntry(
+                    timestamp = System.currentTimeMillis(),
+                    mealSlot = mealSlot,
+                    name = food.name,
+                    calories = food.calories,
+                    fatGrams = food.fatGrams,
+                    proteinGrams = food.proteinGrams,
+                    carbGrams = food.carbGrams,
+                    source = food.source,
+                    flagged = over,
+                    flagReason = if (over) "OVER MEAL FAT LIMIT" else null
+                )
+            )
+            _scanState.value = ScanState.Idle
+        }
+    }
 
     init {
         // Mark profile state as resolved once we've checked the DB at least once,

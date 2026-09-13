@@ -80,6 +80,16 @@ dependencies {
     // Health Connect
     implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
 
+    // Barcode scanning (Play Services code scanner — full UI, no camera plumbing)
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+
+    // Networking for Open Food Facts + Gemini vision
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Image loading for the captured photo preview
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 

@@ -1,6 +1,8 @@
 package com.evyr.rads.ui.screens
 
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -14,10 +16,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.evyr.rads.health.HealthConnectManager
 import com.evyr.rads.ui.Screen
 import com.evyr.rads.ui.TodayViewModel
 import com.evyr.rads.ui.components.*
+import java.io.ByteArrayOutputStream
 
 private val MEAL_SLOTS = listOf("breakfast", "lunch", "dinner", "snack")
 private val TABS = listOf("LOG", "STATS", "SYNC", "SETUP")
@@ -33,13 +38,13 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
     val health by vm.healthToday.collectAsState()
     val selectedId by vm.selectedEntryId.collectAsState()
     val syncStatus by vm.syncStatus.collectAsState()
+    val scanState by vm.scanState.collectAsState()
 
     val healthManager = remember { HealthConnectManager(context) }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = healthManager.permissionContract()
     ) { vm.sync() }
 
-    // Wait for the first DB read so onboarding doesn't flash on every launch.
     if (!profileLoaded) return
 
     if (profile?.onboarded != true) {
@@ -50,6 +55,30 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
     var activeTab by remember { mutableStateOf("LOG") }
     var activeMeal by remember { mutableStateOf("breakfast") }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showScanPicker by remember { mutableStateOf(false) }
+
+    // Keep the ViewModel aware of where scans should land.
+    vm.activeMealSlot = activeMeal
+
+    // Gallery pick -> bytes -> vision
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            readBytes(context, uri)?.let { vm.onPhotoCaptured(it) }
+        }
+    }
+
+    // Camera preview capture -> bitmap -> jpeg bytes -> vision
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            val out = ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, out)
+            vm.onPhotoCaptured(out.toByteArray())
+        }
+    }
 
     val listState = rememberLazyListState()
     val scrollProgress by remember {
@@ -64,13 +93,30 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
     val selectedEntry = entries.firstOrNull { it.id == selectedId }
     val fatLimit = profile?.fatWarnGramsPerMeal ?: 15.0
 
+    fun launchBarcode() {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .enableAutoZoom()
+            .build()
+        GmsBarcodeScanning.getClient(context, options)
+            .startScan()
+            .addOnSuccessListener { barcode ->
+                barcode.rawValue?.let { vm.onBarcodeScanned(it) }
+            }
+            .addOnFailureListener {
+                vm.clearScan()
+            }
+    }
+
     TerminalChrome(
         scrollProgress = scrollProgress,
         buttons = listOf(
             TerminalButtonSpec("LOG", selected = activeTab == "LOG") {
                 if (activeTab == "LOG") showAddDialog = true else activeTab = "LOG"
             },
-            TerminalButtonSpec("SCAN", selected = false) { onNavigate(Screen.SCAN) },
+            TerminalButtonSpec("SCAN", selected = false) {
+                activeTab = "LOG"
+                showScanPicker = true
+            },
             TerminalButtonSpec("SYNC", selected = activeTab == "SYNC") {
                 activeTab = "SYNC"
                 vm.sync()
@@ -133,4 +179,50 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
             }
         )
     }
+
+    if (showScanPicker) {
+        ScanSourceDialog(
+            mealSlot = activeMeal,
+            aiEnabled = vm.aiEnabled(),
+            onBarcode = { showScanPicker = false; launchBarcode() },
+            onCameraPhoto = { showScanPicker = false; cameraLauncher.launch(null) },
+            onGalleryPhoto = {
+                showScanPicker = false
+                galleryLauncher.launch(
+                    androidx.activity.result.PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                    )
+                )
+            },
+            onManual = { showScanPicker = false; showAddDialog = true },
+            onDismiss = { showScanPicker = false }
+        )
+    }
+
+    when (val s = scanState) {
+        is TodayViewModel.ScanState.Working ->
+            ScanStatusDialog(s.message) { vm.clearScan() }
+        is TodayViewModel.ScanState.Message ->
+            ScanStatusDialog(s.text) { vm.clearScan() }
+        is TodayViewModel.ScanState.Choose ->
+            ScanResultPicker(
+                foods = s.foods,
+                onPick = { vm.assess(it, activeMeal) },
+                onDismiss = { vm.clearScan() }
+            )
+        is TodayViewModel.ScanState.Assess ->
+            VerdictDialog(
+                food = s.food,
+                verdict = s.verdict,
+                mealSlot = activeMeal,
+                onDismiss = { vm.clearScan() },
+                onConfirm = { vm.commitScanned(it, activeMeal) }
+            )
+        else -> Unit
+    }
 }
+
+private fun readBytes(context: Context, uri: android.net.Uri): ByteArray? =
+    runCatching {
+        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+    }.getOrNull()
