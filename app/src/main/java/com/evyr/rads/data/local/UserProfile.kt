@@ -1,7 +1,10 @@
 package com.evyr.rads.data.local
 
+import com.evyr.rads.data.Units
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlin.math.abs
+import kotlin.math.ceil
 
 @Entity(tableName = "user_profile")
 data class UserProfile(
@@ -14,6 +17,10 @@ data class UserProfile(
     val goal: String = "maintain",
     val activityLevel: String = "moderate",
     val useImperial: Boolean = true,
+    /** Target body weight, stored in kg. 0 = not set. */
+    val goalWeightKg: Double = 0.0,
+    /** Desired rate of change in pounds per week (always lb, it's the common unit). */
+    val rateLbsPerWeek: Double = 1.0,
     /**
      * Per-meal fat ceiling in grams. Deliberately per-meal, never a daily
      * budget — firm dietary requirement, do not aggregate.
@@ -21,7 +28,6 @@ data class UserProfile(
     val fatWarnGramsPerMeal: Double = 15.0,
     val onboarded: Boolean = false
 ) {
-    /** Mifflin-St Jeor BMR. */
     fun bmr(): Double {
         if (weightKg <= 0 || heightCm <= 0 || age <= 0) return 0.0
         val base = (10 * weightKg) + (6.25 * heightCm) - (5 * age)
@@ -44,13 +50,32 @@ data class UserProfile(
         return bmr() * multiplier
     }
 
+    /** 3500 kcal ≈ 1 lb, so 1 lb/week ≈ 500 kcal/day. */
+    fun dailyAdjustment(): Int = when (goal) {
+        "lose" -> -((rateLbsPerWeek * 3500) / 7).toInt()
+        "gain" -> ((rateLbsPerWeek * 3500) / 7).toInt()
+        else -> 0
+    }
+
     fun calorieTarget(): Int {
         val t = tdee()
         if (t <= 0) return 2000
-        return when (goal) {
-            "lose" -> (t - 500).toInt()
-            "gain" -> (t + 300).toInt()
-            else -> t.toInt()
-        }
+        // Never recommend below a conservative floor.
+        val floor = if (sex == "male") 1500 else 1200
+        return maxOf((t + dailyAdjustment()).toInt(), floor)
+    }
+
+    /** Pounds remaining to goal; null when no goal set. */
+    fun poundsToGoal(): Double? {
+        if (goalWeightKg <= 0 || weightKg <= 0) return null
+        return Units.kgToLb(weightKg - goalWeightKg)
+    }
+
+    /** Whole weeks to reach goal at the chosen rate; null if not computable. */
+    fun weeksToGoal(): Int? {
+        val lbs = poundsToGoal() ?: return null
+        if (rateLbsPerWeek <= 0) return null
+        if (abs(lbs) < 0.5) return 0
+        return ceil(abs(lbs) / rateLbsPerWeek).toInt()
     }
 }

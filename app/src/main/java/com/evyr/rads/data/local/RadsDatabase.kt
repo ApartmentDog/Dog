@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [UserProfile::class, FoodLogEntry::class, HealthSnapshot::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class RadsDatabase : RoomDatabase() {
@@ -15,5 +15,5 @@ abstract class RadsDatabase : RoomDatabase() {
 }
 
 // IMPORTANT: no destructive fallback migrations.
-// Every schema bump from here forward needs a real Migration object
-// added to the builder in DatabaseProvider, not fallbackToDestructiveMigration().
+// Every schema bump needs a real Migration added in Migrations.kt
+// and registered in DatabaseProvider.

@@ -3,10 +3,6 @@ package com.evyr.rads.data.local
 import android.content.Context
 import androidx.room.Room
 
-/**
- * Single source for the Room database instance.
- * No destructive migration fallback — every schema bump needs a real Migration.
- */
 object DatabaseProvider {
     @Volatile
     private var instance: RadsDatabase? = null
@@ -17,7 +13,10 @@ object DatabaseProvider {
                 context.applicationContext,
                 RadsDatabase::class.java,
                 "rads.db"
-            ).build().also { instance = it }
+            )
+                .addMigrations(MIGRATION_1_2)
+                .build()
+                .also { instance = it }
         }
     }
 }

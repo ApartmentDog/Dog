@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evyr.rads.data.local.HealthSnapshot
+import com.evyr.rads.health.HealthConnectManager
 import com.evyr.rads.ui.TodayViewModel
 import com.evyr.rads.ui.theme.*
 import java.text.SimpleDateFormat
@@ -22,21 +23,29 @@ import java.util.Locale
 @Composable
 fun TabSyncView(
     status: TodayViewModel.SyncStatus,
+    availability: HealthConnectManager.Availability,
     health: HealthSnapshot?,
+    imperial: Boolean,
     onSync: () -> Unit,
-    onRequestPermission: () -> Unit
+    onRequestPermission: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onInstall: () -> Unit
 ) {
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
 
         SectionLabel("HEALTH CONNECT LINK")
 
-        val (statusText, warn) = when (status) {
-            TodayViewModel.SyncStatus.IDLE -> "STANDBY" to false
-            TodayViewModel.SyncStatus.SYNCING -> "READING..." to false
-            TodayViewModel.SyncStatus.OK -> "LINK OK" to false
-            TodayViewModel.SyncStatus.UNAVAILABLE -> "NOT INSTALLED" to true
-            TodayViewModel.SyncStatus.NO_PERMISSION -> "PERMISSION DENIED" to true
-            TodayViewModel.SyncStatus.ERROR -> "READ ERROR" to true
+        val (statusText, warn) = when {
+            availability == HealthConnectManager.Availability.NOT_INSTALLED ->
+                "NOT INSTALLED" to true
+            availability == HealthConnectManager.Availability.UPDATE_REQUIRED ->
+                "UPDATE REQUIRED" to true
+            status == TodayViewModel.SyncStatus.IDLE -> "STANDBY" to false
+            status == TodayViewModel.SyncStatus.SYNCING -> "READING..." to false
+            status == TodayViewModel.SyncStatus.OK -> "LINK OK" to false
+            status == TodayViewModel.SyncStatus.NO_PERMISSION -> "ACCESS DENIED" to true
+            status == TodayViewModel.SyncStatus.ERROR -> "READ ERROR" to true
+            else -> "STANDBY" to false
         }
         StatRow("STATUS", statusText, warn = warn, emphasize = true)
         StatRow(
@@ -51,28 +60,54 @@ fun TabSyncView(
         SectionLabel("LAST READ VALUES")
         StatRow("STEPS", health?.steps?.toString() ?: "--")
         StatRow("EXERCISE", health?.exerciseMinutes?.let { "$it min" } ?: "-- min")
-        StatRow("WEIGHT", health?.weightKg?.let { "${trim(it)} kg" } ?: "-- kg")
+        StatRow(
+            "WEIGHT",
+            health?.weightKg?.let {
+                "${com.evyr.rads.data.Units.displayWeight(it, imperial)} ${if (imperial) "lb" else "kg"}"
+            } ?: "--"
+        )
 
         Spacer(Modifier.height(4.dp))
         Hairline()
         SectionLabel("ACTIONS")
-        TerminalAction("[PULL NOW]", onSync)
-        TerminalAction("[GRANT PERMISSIONS]", onRequestPermission)
 
-        Spacer(Modifier.height(8.dp))
-        Text(
-            when (status) {
-                TodayViewModel.SyncStatus.UNAVAILABLE ->
-                    "Health Connect is not available on this device. Install it from the Play Store, then grant access."
-                TodayViewModel.SyncStatus.NO_PERMISSION ->
-                    "Access was denied. Use [GRANT PERMISSIONS] and allow steps, weight and exercise."
-                else ->
-                    "Reads from Health Connect only. Samsung Health and the watch write into Health Connect; R.A.D.S. never talks to Samsung directly."
-            },
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
-            color = AmberFaint
-        )
-        Spacer(Modifier.height(10.dp))
+        when (availability) {
+            HealthConnectManager.Availability.NOT_INSTALLED -> {
+                TerminalAction("[INSTALL HEALTH CONNECT]", onInstall)
+                Spacer(Modifier.height(4.dp))
+                Note(
+                    "Health Connect isn't on this device. Install it, open Samsung Health once so it writes data, then come back and grant access."
+                )
+            }
+            HealthConnectManager.Availability.UPDATE_REQUIRED -> {
+                TerminalAction("[UPDATE HEALTH CONNECT]", onInstall)
+                Spacer(Modifier.height(4.dp))
+                Note("Health Connect is installed but too old to talk to. Update it, then grant access.")
+            }
+            HealthConnectManager.Availability.READY -> {
+                TerminalAction("[PULL NOW]", onSync)
+                TerminalAction("[GRANT ACCESS]", onRequestPermission)
+                TerminalAction("[OPEN HEALTH CONNECT SETTINGS]", onOpenSettings)
+                Spacer(Modifier.height(6.dp))
+                Note(
+                    if (status == TodayViewModel.SyncStatus.NO_PERMISSION)
+                        "Access was denied. Use [GRANT ACCESS] and allow Steps, Weight and Exercise. If no prompt appears, open settings and enable them there."
+                    else
+                        "Reads from Health Connect only. Samsung Health and the watch write into it; R.A.D.S. never talks to Samsung directly."
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
     }
+}
+
+@Composable
+private fun Note(text: String) {
+    Text(
+        text,
+        fontFamily = FontFamily.Monospace,
+        fontSize = 9.sp,
+        color = AmberFaint
+    )
 }

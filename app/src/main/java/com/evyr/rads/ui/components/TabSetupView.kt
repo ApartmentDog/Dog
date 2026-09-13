@@ -2,6 +2,7 @@ package com.evyr.rads.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.ui.theme.*
 
@@ -34,35 +36,88 @@ fun TabSetupView(
     onUpdate: (UserProfile) -> Unit
 ) {
     val p = profile ?: UserProfile()
+    val imp = p.useImperial
+    val wLabel = if (imp) "lb" else "kg"
 
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
 
+        SectionLabel("UNITS")
+        ChoiceRow("MEASUREMENT", listOf("imperial", "metric"),
+            if (imp) "imperial" else "metric") {
+            onUpdate(p.copy(useImperial = it == "imperial"))
+        }
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
         SectionLabel("OPERATOR")
         EditField("NAME", p.name) { onUpdate(p.copy(name = it)) }
-        EditNumber("AGE", p.age.toString()) { v ->
-            v.toIntOrNull()?.let { onUpdate(p.copy(age = it)) }
+        EditNumber("AGE", p.age.takeIf { it > 0 }?.toString() ?: "") { v ->
+            onUpdate(p.copy(age = v.toIntOrNull() ?: 0))
         }
-        ChoiceRow(
-            "SEX",
-            listOf("male", "female", "unspecified"),
-            p.sex
-        ) { onUpdate(p.copy(sex = it)) }
+        ChoiceRow("SEX", listOf("male", "female", "unspecified"), p.sex) {
+            onUpdate(p.copy(sex = it))
+        }
 
         Spacer(Modifier.height(4.dp))
         Hairline()
         SectionLabel("BODY")
-        EditNumber("HEIGHT cm", trim(p.heightCm)) { v ->
-            v.toDoubleOrNull()?.let { onUpdate(p.copy(heightCm = it)) }
+        if (imp) {
+            val (ft, inch) = Units.cmToFeetInches(p.heightCm)
+            Row(Modifier.fillMaxWidth()) {
+                Box(Modifier.weight(1f)) {
+                    EditNumber("HEIGHT ft", if (p.heightCm > 0) ft.toString() else "") { v ->
+                        val f = v.toIntOrNull() ?: 0
+                        onUpdate(p.copy(heightCm = Units.feetInchesToCm(f, inch)))
+                    }
+                }
+                Spacer(Modifier.width(6.dp))
+                Box(Modifier.weight(1f)) {
+                    EditNumber("in", if (p.heightCm > 0) inch.toString() else "") { v ->
+                        val i = v.toIntOrNull() ?: 0
+                        onUpdate(p.copy(heightCm = Units.feetInchesToCm(ft, i)))
+                    }
+                }
+            }
+        } else {
+            EditNumber("HEIGHT cm", trim(p.heightCm).takeIf { p.heightCm > 0 } ?: "") { v ->
+                onUpdate(p.copy(heightCm = v.toDoubleOrNull() ?: 0.0))
+            }
         }
-        EditNumber("WEIGHT kg", trim(p.weightKg)) { v ->
-            v.toDoubleOrNull()?.let { onUpdate(p.copy(weightKg = it)) }
+        EditNumber("WEIGHT $wLabel", Units.displayWeight(p.weightKg, imp)) { v ->
+            Units.parseWeightToKg(v, imp)?.let { onUpdate(p.copy(weightKg = it)) }
         }
 
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel("PROTOCOL")
+        SectionLabel("OBJECTIVE")
         ChoiceRow("GOAL", listOf("lose", "maintain", "gain"), p.goal) {
             onUpdate(p.copy(goal = it))
+        }
+        if (p.goal != "maintain") {
+            EditNumber("TARGET $wLabel", Units.displayWeight(p.goalWeightKg, imp)) { v ->
+                Units.parseWeightToKg(v, imp)?.let { onUpdate(p.copy(goalWeightKg = it)) }
+            }
+            ChoiceRow(
+                "RATE lb/wk",
+                listOf("0.5", "1.0", "1.5", "2.0"),
+                trim(p.rateLbsPerWeek)
+            ) { onUpdate(p.copy(rateLbsPerWeek = it.toDoubleOrNull() ?: 1.0)) }
+
+            p.poundsToGoal()?.let { lbs ->
+                StatRow("TO GOAL", "${trim(kotlin.math.abs(lbs))} lb")
+            }
+            p.weeksToGoal()?.let { wk ->
+                StatRow("ETA", if (wk == 0) "AT GOAL" else "$wk weeks")
+            }
+            if (p.rateLbsPerWeek > 2.0) {
+                Text(
+                    "Above 2 lb/week is rarely advisable.",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 8.sp,
+                    color = AmberWarn,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
         ChoiceRow(
             "ACTIVITY",
@@ -89,6 +144,10 @@ fun TabSetupView(
         SectionLabel("COMPUTED")
         StatRow("BMR", p.bmr().toInt().toString())
         StatRow("TDEE", p.tdee().toInt().toString())
+        StatRow(
+            "ADJUST",
+            p.dailyAdjustment().let { if (it >= 0) "+$it" else "$it" } + " kcal"
+        )
         StatRow("TARGET", "${p.calorieTarget()} kcal", emphasize = true)
 
         Spacer(Modifier.height(12.dp))
@@ -140,15 +199,13 @@ private fun EditNumber(label: String, value: String, onChange: (String) -> Unit)
 
 @Composable
 private fun FieldShell(label: String, content: @Composable () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(
             label,
             fontFamily = FontFamily.Monospace,
             fontSize = 9.sp,
             color = AmberDim,
-            modifier = Modifier.width(92.dp).padding(top = 5.dp)
+            modifier = Modifier.width(88.dp).padding(top = 5.dp)
         )
         Column(Modifier.weight(1f)) { content() }
     }
@@ -162,12 +219,7 @@ private fun ChoiceRow(
     onSelect: (String) -> Unit
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(
-            label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
-            color = AmberDim
-        )
+        Text(label, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = AmberDim)
         Row(Modifier.fillMaxWidth().padding(top = 3.dp)) {
             options.forEach { opt ->
                 val isSel = opt == selected

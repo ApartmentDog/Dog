@@ -32,32 +32,43 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.ui.theme.*
 
 @Composable
 fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
     var step by remember { mutableStateOf(0) }
+    var imperial by remember { mutableStateOf(true) }
+
     var name by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }
     var sex by remember { mutableStateOf("unspecified") }
-    var heightCm by remember { mutableStateOf("") }
-    var weightKg by remember { mutableStateOf("") }
-    var goal by remember { mutableStateOf("maintain") }
+
+    var feet by remember { mutableStateOf("") }
+    var inches by remember { mutableStateOf("") }
+    var heightCmText by remember { mutableStateOf("") }
+    var weightText by remember { mutableStateOf("") }
+
+    var goal by remember { mutableStateOf("lose") }
+    var goalWeightText by remember { mutableStateOf("") }
+    var rate by remember { mutableStateOf("1.0") }
     var activity by remember { mutableStateOf("moderate") }
     var fatLimit by remember { mutableStateOf("15") }
+
+    val lastStep = 4
 
     Box(
         Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(SandMid, SandDeep)))
-            .padding(16.dp)
+            .padding(14.dp)
     ) {
         Column(
             Modifier
                 .fillMaxSize()
                 .background(ScreenBlack, RoundedCornerShape(8.dp))
-                .padding(18.dp)
+                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
@@ -75,51 +86,89 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
             )
             Spacer(Modifier.height(4.dp))
             Box(Modifier.fillMaxWidth().height(1.dp).background(AmberHairline))
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
 
             Text(
-                "> INITIAL CONFIGURATION [${step + 1}/4]",
+                "> SETUP [${step + 1}/${lastStep + 1}]",
                 fontFamily = FontFamily.Monospace,
                 fontSize = 10.sp,
                 color = AmberFaint
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
 
             when (step) {
                 0 -> {
-                    Prompt("IDENTIFY OPERATOR")
+                    Prompt("UNITS")
+                    Choices("MEASUREMENT", listOf("imperial", "metric"),
+                        if (imperial) "imperial" else "metric") {
+                        imperial = it == "imperial"
+                    }
+                    Note(
+                        if (imperial) "Pounds and feet/inches."
+                        else "Kilograms and centimeters."
+                    )
+                }
+                1 -> {
+                    Prompt("OPERATOR")
                     Field("NAME", name) { name = it }
                     Field("AGE", age, numeric = true) { age = it }
                     Choices("SEX", listOf("male", "female", "unspecified"), sex) { sex = it }
                 }
-                1 -> {
-                    Prompt("BODY METRICS")
-                    Field("HEIGHT cm", heightCm, numeric = true) { heightCm = it }
-                    Field("WEIGHT kg", weightKg, numeric = true) { weightKg = it }
-                }
                 2 -> {
-                    Prompt("PROTOCOL")
+                    Prompt("BODY")
+                    if (imperial) {
+                        Row(Modifier.fillMaxWidth()) {
+                            Box(Modifier.weight(1f)) {
+                                Field("HEIGHT ft", feet, numeric = true) { feet = it }
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Box(Modifier.weight(1f)) {
+                                Field("in", inches, numeric = true) { inches = it }
+                            }
+                        }
+                        Field("WEIGHT lb", weightText, numeric = true) { weightText = it }
+                    } else {
+                        Field("HEIGHT cm", heightCmText, numeric = true) { heightCmText = it }
+                        Field("WEIGHT kg", weightText, numeric = true) { weightText = it }
+                    }
+                }
+                3 -> {
+                    Prompt("OBJECTIVE")
                     Choices("GOAL", listOf("lose", "maintain", "gain"), goal) { goal = it }
+                    if (goal != "maintain") {
+                        Field(
+                            "TARGET ${if (imperial) "lb" else "kg"}",
+                            goalWeightText,
+                            numeric = true
+                        ) { goalWeightText = it }
+                        Choices(
+                            "RATE (lb/week)",
+                            listOf("0.5", "1.0", "1.5", "2.0"),
+                            rate
+                        ) { rate = it }
+                        val r = rate.toDoubleOrNull() ?: 1.0
+                        Note(
+                            "${if (goal == "lose") "Losing" else "Gaining"} $r lb/week " +
+                                "≈ ${((r * 3500) / 7).toInt()} kcal/day " +
+                                (if (goal == "lose") "deficit." else "surplus.") +
+                                if (r > 2.0) " Above 2 lb/week is rarely advisable." else ""
+                        )
+                    }
                     Choices(
                         "ACTIVITY",
                         listOf("sedentary", "light", "moderate", "active", "very_active"),
                         activity
                     ) { activity = it }
                 }
-                3 -> {
+                4 -> {
                     Prompt("FAT CEILING")
-                    Text(
-                        "Maximum fat grams for any single meal.\nThis is checked per meal, never as a daily total.",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 9.sp,
-                        color = AmberFaint,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    Note("Maximum fat grams in any single meal. Checked per meal, never as a daily total.")
+                    Spacer(Modifier.height(6.dp))
                     Field("GRAMS/MEAL", fatLimit, numeric = true) { fatLimit = it }
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
             Row(Modifier.fillMaxWidth()) {
                 if (step > 0) {
                     Text(
@@ -132,25 +181,40 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
                     Spacer(Modifier.width(16.dp))
                 }
                 Text(
-                    if (step < 3) "[NEXT]" else "[INITIALIZE]",
+                    if (step < lastStep) "[NEXT]" else "[INITIALIZE]",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = AmberBright,
                     modifier = Modifier
                         .clickable {
-                            if (step < 3) {
+                            if (step < lastStep) {
                                 step++
                             } else {
+                                val heightCm = if (imperial) {
+                                    Units.feetInchesToCm(
+                                        feet.toIntOrNull() ?: 0,
+                                        inches.toIntOrNull() ?: 0
+                                    )
+                                } else heightCmText.toDoubleOrNull() ?: 0.0
+
+                                val weightKg =
+                                    Units.parseWeightToKg(weightText, imperial) ?: 0.0
+                                val goalKg =
+                                    Units.parseWeightToKg(goalWeightText, imperial) ?: 0.0
+
                                 onComplete(
                                     UserProfile(
                                         name = name.trim(),
                                         age = age.toIntOrNull() ?: 0,
                                         sex = sex,
-                                        heightCm = heightCm.toDoubleOrNull() ?: 0.0,
-                                        weightKg = weightKg.toDoubleOrNull() ?: 0.0,
+                                        heightCm = heightCm,
+                                        weightKg = weightKg,
                                         goal = goal,
+                                        goalWeightKg = goalKg,
+                                        rateLbsPerWeek = rate.toDoubleOrNull() ?: 1.0,
                                         activityLevel = activity,
+                                        useImperial = imperial,
                                         fatWarnGramsPerMeal = fatLimit.toDoubleOrNull() ?: 15.0,
                                         onboarded = true
                                     )
@@ -172,7 +236,18 @@ private fun Prompt(text: String) {
         fontSize = 13.sp,
         fontWeight = FontWeight.Bold,
         color = Amber,
-        modifier = Modifier.padding(bottom = 10.dp)
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
+}
+
+@Composable
+private fun Note(text: String) {
+    Text(
+        text,
+        fontFamily = FontFamily.Monospace,
+        fontSize = 9.sp,
+        color = AmberFaint,
+        modifier = Modifier.padding(top = 4.dp)
     )
 }
 
@@ -189,7 +264,7 @@ private fun Field(
             fontFamily = FontFamily.Monospace,
             fontSize = 10.sp,
             color = AmberDim,
-            modifier = Modifier.width(100.dp).padding(top = 5.dp)
+            modifier = Modifier.width(92.dp).padding(top = 5.dp)
         )
         BasicTextField(
             value = value,
@@ -219,9 +294,9 @@ private fun Choices(
     selected: String,
     onSelect: (String) -> Unit
 ) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Text(label, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = AmberDim)
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(3.dp))
         options.forEach { opt ->
             val isSel = opt == selected
             Text(
@@ -234,7 +309,7 @@ private fun Choices(
                     .fillMaxWidth()
                     .clickable { onSelect(opt) }
                     .background(if (isSel) RowHighlight else Color.Transparent)
-                    .padding(horizontal = 6.dp, vertical = 5.dp)
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
             )
         }
     }

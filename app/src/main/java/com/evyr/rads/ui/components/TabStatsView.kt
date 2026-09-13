@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.data.local.HealthSnapshot
 import com.evyr.rads.data.local.UserProfile
@@ -66,12 +67,22 @@ fun TabStatsView(
         SectionLabel("BODY / ACTIVITY")
         StatRow("STEPS", health?.steps?.toString() ?: "--", emphasize = true)
         StatRow("EXERCISE", health?.exerciseMinutes?.let { "$it min" } ?: "-- min")
+        val imp = profile?.useImperial ?: true
+        val wUnit = if (imp) "lb" else "kg"
+        val shownKg = health?.weightKg ?: profile?.weightKg?.takeIf { it > 0 }
         StatRow(
             "WEIGHT",
-            health?.weightKg?.let { "${trim(it)} kg" }
-                ?: profile?.weightKg?.takeIf { it > 0 }?.let { "${trim(it)} kg" }
-                ?: "-- kg"
+            shownKg?.let { "${Units.displayWeight(it, imp)} $wUnit" } ?: "-- $wUnit"
         )
+        profile?.goalWeightKg?.takeIf { it > 0 }?.let { g ->
+            StatRow("GOAL WT", "${Units.displayWeight(g, imp)} $wUnit")
+        }
+        profile?.poundsToGoal()?.let { lbs ->
+            StatRow("TO GOAL", "${trim(kotlin.math.abs(lbs))} lb")
+        }
+        profile?.weeksToGoal()?.let { wk ->
+            StatRow("ETA", if (wk == 0) "AT GOAL" else "$wk weeks")
+        }
 
         Spacer(Modifier.height(6.dp))
         Hairline()
@@ -79,6 +90,7 @@ fun TabStatsView(
         StatRow("BMR", profile?.bmr()?.toInt()?.toString() ?: "--")
         StatRow("TDEE", profile?.tdee()?.toInt()?.toString() ?: "--")
         StatRow("GOAL", profile?.goal?.uppercase() ?: "--")
+        StatRow("RATE", profile?.let { "${trim(it.rateLbsPerWeek)} lb/wk" } ?: "--")
         StatRow("TARGET", "$target kcal", emphasize = true)
 
         Spacer(Modifier.height(10.dp))

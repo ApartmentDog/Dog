@@ -101,10 +101,18 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
                 )
                 "SYNC" -> TabSyncView(
                     status = syncStatus,
+                    availability = healthManager.availability(),
                     health = health,
+                    imperial = profile?.useImperial ?: true,
                     onSync = { vm.sync() },
                     onRequestPermission = {
                         permissionLauncher.launch(healthManager.permissions)
+                    },
+                    onOpenSettings = {
+                        runCatching { context.startActivity(healthManager.settingsIntent()) }
+                    },
+                    onInstall = {
+                        runCatching { context.startActivity(healthManager.installIntent()) }
                     }
                 )
                 "SETUP" -> TabSetupView(
