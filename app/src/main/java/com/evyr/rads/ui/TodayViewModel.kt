@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.evyr.rads.data.local.DatabaseProvider
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.data.local.HealthSnapshot
+import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.health.HealthConnectManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,13 +22,15 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private val db = DatabaseProvider.get(app)
     private val foodDao = db.foodLogDao()
     private val healthDao = db.healthSnapshotDao()
+    private val profileDao = db.userProfileDao()
     private val health = HealthConnectManager(app)
 
     private val zone: ZoneId = ZoneId.systemDefault()
     private val today: LocalDate get() = LocalDate.now(zone)
     private val dayKey: Long get() = today.toEpochDay()
     private val dayStart: Long get() = today.atStartOfDay(zone).toInstant().toEpochMilli()
-    private val dayEnd: Long get() = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+    private val dayEnd: Long get() =
+        today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
 
     val entries: StateFlow<List<FoodLogEntry>> =
         foodDao.getEntriesForDay(dayStart, dayEnd)
@@ -37,6 +40,13 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         healthDao.observeDay(dayKey)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val profile: StateFlow<UserProfile?> =
+        profileDao.observe()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val _profileLoaded = MutableStateFlow(false)
+    val profileLoaded: StateFlow<Boolean> = _profileLoaded.asStateFlow()
+
     private val _selectedEntryId = MutableStateFlow<Long?>(null)
     val selectedEntryId: StateFlow<Long?> = _selectedEntryId.asStateFlow()
 
@@ -45,8 +55,29 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
     enum class SyncStatus { IDLE, SYNCING, OK, UNAVAILABLE, NO_PERMISSION, ERROR }
 
+    init {
+        // Mark profile state as resolved once we've checked the DB at least once,
+        // so onboarding doesn't flash before the real profile loads.
+        viewModelScope.launch {
+            profileDao.get()
+            _profileLoaded.value = true
+        }
+        // Opportunistic sync on launch; silently no-ops without permission.
+        viewModelScope.launch { syncQuietly() }
+    }
+
     fun selectEntry(id: Long?) {
-        _selectedEntryId.value = id
+        _selectedEntryId.value = if (_selectedEntryId.value == id) null else id
+    }
+
+    fun saveProfile(updated: UserProfile) {
+        viewModelScope.launch { profileDao.upsert(updated.copy(id = 1)) }
+    }
+
+    fun completeOnboarding(p: UserProfile) {
+        viewModelScope.launch {
+            profileDao.upsert(p.copy(id = 1, onboarded = true))
+        }
     }
 
     fun addEntry(
@@ -58,6 +89,8 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         carbGrams: Double
     ) {
         viewModelScope.launch {
+            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: 15.0
+            val overLimit = fatGrams >= limit
             foodDao.insert(
                 FoodLogEntry(
                     timestamp = System.currentTimeMillis(),
@@ -68,51 +101,49 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                     proteinGrams = proteinGrams,
                     carbGrams = carbGrams,
                     source = "manual",
-                    flagged = fatGrams >= FAT_WARN_GRAMS_PER_MEAL,
-                    flagReason = if (fatGrams >= FAT_WARN_GRAMS_PER_MEAL) "HIGH FAT" else null
+                    flagged = overLimit,
+                    flagReason = if (overLimit) "OVER MEAL FAT LIMIT" else null
                 )
             )
         }
     }
 
     fun deleteEntry(entry: FoodLogEntry) {
-        viewModelScope.launch { foodDao.delete(entry) }
+        viewModelScope.launch {
+            if (_selectedEntryId.value == entry.id) _selectedEntryId.value = null
+            foodDao.delete(entry)
+        }
     }
 
     fun sync() {
         viewModelScope.launch {
             _syncStatus.value = SyncStatus.SYNCING
-            try {
-                if (!health.isAvailable()) {
-                    _syncStatus.value = SyncStatus.UNAVAILABLE
-                    return@launch
-                }
-                if (!health.hasAllPermissions()) {
-                    _syncStatus.value = SyncStatus.NO_PERMISSION
-                    return@launch
-                }
-                val daily = health.readToday()
-                healthDao.upsert(
-                    HealthSnapshot(
-                        dayKey = dayKey,
-                        steps = daily.steps,
-                        weightKg = daily.weightKg,
-                        exerciseMinutes = daily.exerciseMinutes,
-                        lastSyncedAt = System.currentTimeMillis()
-                    )
-                )
-                _syncStatus.value = SyncStatus.OK
-            } catch (e: Exception) {
-                _syncStatus.value = SyncStatus.ERROR
-            }
+            _syncStatus.value = runSync()
         }
     }
 
-    companion object {
-        /**
-         * Per-meal fat threshold. This is deliberately per-meal, never a
-         * daily budget — firm dietary requirement, do not aggregate.
-         */
-        const val FAT_WARN_GRAMS_PER_MEAL = 15.0
+    private suspend fun syncQuietly() {
+        val result = runSync()
+        if (result == SyncStatus.OK) _syncStatus.value = SyncStatus.OK
+    }
+
+    private suspend fun runSync(): SyncStatus {
+        return try {
+            if (!health.isAvailable()) return SyncStatus.UNAVAILABLE
+            if (!health.hasAllPermissions()) return SyncStatus.NO_PERMISSION
+            val daily = health.readToday()
+            healthDao.upsert(
+                HealthSnapshot(
+                    dayKey = dayKey,
+                    steps = daily.steps,
+                    weightKg = daily.weightKg,
+                    exerciseMinutes = daily.exerciseMinutes,
+                    lastSyncedAt = System.currentTimeMillis()
+                )
+            )
+            SyncStatus.OK
+        } catch (e: Exception) {
+            SyncStatus.ERROR
+        }
     }
 }

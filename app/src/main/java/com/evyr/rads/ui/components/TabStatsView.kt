@@ -1,0 +1,85 @@
+package com.evyr.rads.ui.components
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.local.FoodLogEntry
+import com.evyr.rads.data.local.HealthSnapshot
+import com.evyr.rads.data.local.UserProfile
+import com.evyr.rads.ui.theme.*
+
+@Composable
+fun TabStatsView(
+    entries: List<FoodLogEntry>,
+    profile: UserProfile?,
+    health: HealthSnapshot?,
+    mealSlots: List<String>
+) {
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+
+        val target = profile?.calorieTarget() ?: 2000
+        val totalCals = entries.sumOf { it.calories }
+        val totalProtein = entries.sumOf { it.proteinGrams }
+        val totalCarbs = entries.sumOf { it.carbGrams }
+
+        SectionLabel("TODAY / INTAKE")
+        BarMeter("CALORIES", totalCals.toDouble(), target.toDouble(), "")
+        StatRow("PROTEIN", "${trim(totalProtein)} g")
+        StatRow("CARBS", "${trim(totalCarbs)} g")
+        StatRow("ENTRIES", "${entries.size}")
+
+        Spacer(Modifier.height(6.dp))
+        Hairline()
+        SectionLabel("FAT BY MEAL")
+        Text(
+            "Fat is assessed per meal, not per day.",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 8.sp,
+            color = AmberFaint,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        val limit = profile?.fatWarnGramsPerMeal ?: 15.0
+        mealSlots.forEach { slot ->
+            val slotFat = entries.filter { it.mealSlot == slot }.sumOf { it.fatGrams }
+            BarMeter(
+                label = slot.uppercase(),
+                current = slotFat,
+                target = limit,
+                unit = "g",
+                warn = slotFat >= limit
+            )
+        }
+
+        Spacer(Modifier.height(6.dp))
+        Hairline()
+        SectionLabel("BODY / ACTIVITY")
+        StatRow("STEPS", health?.steps?.toString() ?: "--", emphasize = true)
+        StatRow("EXERCISE", health?.exerciseMinutes?.let { "$it min" } ?: "-- min")
+        StatRow(
+            "WEIGHT",
+            health?.weightKg?.let { "${trim(it)} kg" }
+                ?: profile?.weightKg?.takeIf { it > 0 }?.let { "${trim(it)} kg" }
+                ?: "-- kg"
+        )
+
+        Spacer(Modifier.height(6.dp))
+        Hairline()
+        SectionLabel("TARGETS")
+        StatRow("BMR", profile?.bmr()?.toInt()?.toString() ?: "--")
+        StatRow("TDEE", profile?.tdee()?.toInt()?.toString() ?: "--")
+        StatRow("GOAL", profile?.goal?.uppercase() ?: "--")
+        StatRow("TARGET", "$target kcal", emphasize = true)
+
+        Spacer(Modifier.height(10.dp))
+    }
+}

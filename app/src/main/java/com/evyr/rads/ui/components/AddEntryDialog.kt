@@ -27,10 +27,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.evyr.rads.ui.theme.*
 
-private val Amber = Color(0xFFFFB000)
-private val AmberDim = Color(0x99FFB000)
-private val ScreenBlack = Color(0xFF0A0800)
 
 @Composable
 fun AddEntryDialog(
@@ -129,7 +127,7 @@ private fun TerminalField(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF1A1200), RoundedCornerShape(2.dp))
+                .background(ScreenInk, RoundedCornerShape(2.dp))
                 .padding(horizontal = 6.dp, vertical = 4.dp)
         )
     }

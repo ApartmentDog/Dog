@@ -11,6 +11,7 @@ import androidx.room.RoomDatabase
 abstract class RadsDatabase : RoomDatabase() {
     abstract fun foodLogDao(): FoodLogDao
     abstract fun healthSnapshotDao(): HealthSnapshotDao
+    abstract fun userProfileDao(): UserProfileDao
 }
 
 // IMPORTANT: no destructive fallback migrations.
