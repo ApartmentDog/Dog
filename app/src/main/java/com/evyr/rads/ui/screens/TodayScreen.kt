@@ -19,7 +19,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.evyr.rads.health.HealthConnectManager
-import com.evyr.rads.ui.Screen
 import com.evyr.rads.ui.TodayViewModel
 import com.evyr.rads.ui.components.*
 import java.io.ByteArrayOutputStream
@@ -28,7 +27,7 @@ private val MEAL_SLOTS = listOf("breakfast", "lunch", "dinner", "snack")
 private val TABS = listOf("LOG", "STATS", "SYNC", "SETUP")
 
 @Composable
-fun TodayScreen(onNavigate: (Screen) -> Unit) {
+fun TodayScreen() {
     val vm: TodayViewModel = viewModel()
     val context = LocalContext.current
 

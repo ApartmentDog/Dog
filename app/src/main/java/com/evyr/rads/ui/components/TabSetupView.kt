@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.evyr.rads.data.AppPrefs
 import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.UserProfile
@@ -144,6 +145,27 @@ fun TabSetupView(
         EditNumber("GRAMS", trim(p.fatWarnGramsPerMeal)) { v ->
             v.toDoubleOrNull()?.let { onUpdate(p.copy(fatWarnGramsPerMeal = it)) }
         }
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
+        SectionLabel("INTERFACE")
+        val bootCtx = LocalContext.current
+        var bootOn by remember { mutableStateOf(AppPrefs.bootSequenceEnabled(bootCtx)) }
+        ChoiceRow(
+            "BOOT SEQUENCE",
+            listOf("on", "off"),
+            if (bootOn) "on" else "off"
+        ) {
+            bootOn = it == "on"
+            AppPrefs.setBootSequenceEnabled(bootCtx, bootOn)
+        }
+        Text(
+            "Cold-boot animation on launch. Takes about two seconds and can be tapped through.",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 8.sp,
+            color = AmberFaint,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
 
         Spacer(Modifier.height(4.dp))
         Hairline()
