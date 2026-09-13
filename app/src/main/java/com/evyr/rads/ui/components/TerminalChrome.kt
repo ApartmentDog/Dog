@@ -1,5 +1,10 @@
 package com.evyr.rads.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +56,7 @@ data class TerminalButtonSpec(
 fun TerminalChrome(
     buttons: List<TerminalButtonSpec>,
     scrollProgress: Float = 0f,
+    busy: Boolean = false,
     modifier: Modifier = Modifier,
     screenContent: @Composable () -> Unit
 ) {
@@ -98,16 +105,25 @@ fun TerminalChrome(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Activity lamp, above the wheel
-                    Led(color = LedAmber, modifier = Modifier.padding(bottom = 10.dp))
+                    // Activity lamp — flickers while reading or searching
+                    Led(
+                        color = LedAmber,
+                        lit = busy,
+                        flicker = busy,
+                        modifier = Modifier.padding(bottom = 10.dp)
+                    )
 
                     ScrollWheel(
                         progress = scrollProgress,
                         modifier = Modifier.height(150.dp)
                     )
 
-                    // Power lamp, below the wheel
-                    Led(color = LedGreen, modifier = Modifier.padding(top = 10.dp))
+                    // Power lamp — steady while the app is up
+                    Led(
+                        color = LedGreen,
+                        lit = true,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
                 }
 
                 Spacer(Modifier.width(8.dp))
@@ -295,9 +311,45 @@ private fun VentBank(
     }
 }
 
-/** Small panel indicator lamp, the kind on an old desktop front panel. */
+/**
+ * Small panel indicator lamp, the kind on an old desktop front panel.
+ * When flickering it mimics a drive-activity light: irregular, fast.
+ */
 @Composable
-private fun Led(color: Color, modifier: Modifier = Modifier) {
+private fun Led(
+    color: Color,
+    lit: Boolean,
+    flicker: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    // The transition is always created — never call composables conditionally.
+    val transition = rememberInfiniteTransition(label = "led")
+    val flickerValue by transition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 740
+                1.0f at 0
+                0.35f at 90
+                0.95f at 150
+                0.45f at 240
+                1.0f at 300
+                0.30f at 420
+                0.85f at 500
+                0.55f at 590
+            },
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ledIntensity"
+    )
+
+    val intensity = when {
+        flicker -> flickerValue
+        lit -> 1f
+        else -> 0f
+    }
+
     Box(
         modifier = modifier
             .size(14.dp)
@@ -312,15 +364,27 @@ private fun Led(color: Color, modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.85f),
-                            color,
-                            color.copy(alpha = 0.55f)
-                        ),
-                        center = Offset(4f, 3f),
-                        radius = 18f
-                    ),
+                    brush = if (intensity <= 0f) {
+                        // Dark lens: visible hardware, no light behind it.
+                        Brush.radialGradient(
+                            colors = listOf(
+                                color.copy(alpha = 0.18f),
+                                Color(0xFF14100A)
+                            ),
+                            center = Offset(4f, 3f),
+                            radius = 18f
+                        )
+                    } else {
+                        Brush.radialGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.85f * intensity),
+                                color.copy(alpha = intensity),
+                                color.copy(alpha = 0.55f * intensity)
+                            ),
+                            center = Offset(4f, 3f),
+                            radius = 18f
+                        )
+                    },
                     shape = CircleShape
                 )
         )

@@ -113,8 +113,14 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
             }
     }
 
+    // Activity lamp: lit while anything is actually working.
+    val busy = searching ||
+        syncStatus == TodayViewModel.SyncStatus.SYNCING ||
+        scanState is TodayViewModel.ScanState.Working
+
     TerminalChrome(
         scrollProgress = scrollProgress,
+        busy = busy,
         buttons = listOf(
             TerminalButtonSpec("LOG", selected = activeTab == "LOG") {
                 if (activeTab == "LOG") {
