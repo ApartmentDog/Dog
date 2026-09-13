@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer ring (donut) -->
+    <path
+        android:fillColor="#FFB000"
+        android:pathData="M54,14 A40,40 0 1,1 53.99,14 Z M54,20 A34,34 0 1,0 54.01,20 Z"
+        android:fillType="evenOdd" />
+
+    <!-- Three trefoil blades, verified 120-degree spacing -->
+    <path
+        android:fillColor="#FFB000"
+        android:pathData="M48.55,43.31 L39.47,25.49 L68.53,25.49 L59.45,43.31 Z" />
+    <path
+        android:fillColor="#FFB000"
+        android:pathData="M65.98,54.63 L85.96,55.67 L71.43,80.84 L60.54,64.06 Z" />
+    <path
+        android:fillColor="#FFB000"
+        android:pathData="M47.46,64.06 L36.57,80.84 L22.04,55.67 L42.02,54.63 Z" />
+
+    <!-- Center ring -->
+    <path
+        android:fillColor="#FFB000"
+        android:pathData="M54,42 A12,12 0 1,1 53.99,42 Z M54,45 A9,9 0 1,0 54.01,45 Z"
+        android:fillType="evenOdd" />
+</vector>
