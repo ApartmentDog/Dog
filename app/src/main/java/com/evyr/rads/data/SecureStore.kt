@@ -13,6 +13,7 @@ object SecureStore {
     private const val FILE = "rads_secure"
     private const val KEY_GEMINI = "gemini_api_key"
     private const val KEY_MODEL = "gemini_model"
+    private const val KEY_USDA = "usda_api_key"
 
     const val DEFAULT_MODEL = "gemini-2.0-flash"
 
@@ -47,4 +48,12 @@ object SecureStore {
     }
 
     fun hasGeminiKey(context: Context): Boolean = geminiKey(context).isNotBlank()
+
+    /** Blank means fall back to USDA's shared DEMO_KEY (rate limited). */
+    fun usdaKey(context: Context): String =
+        runCatching { prefs(context).getString(KEY_USDA, "") ?: "" }.getOrDefault("")
+
+    fun setUsdaKey(context: Context, value: String) {
+        runCatching { prefs(context).edit().putString(KEY_USDA, value.trim()).apply() }
+    }
 }

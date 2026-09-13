@@ -24,6 +24,7 @@ import com.evyr.rads.ui.theme.*
 fun ScanSourceDialog(
     mealSlot: String,
     aiEnabled: Boolean,
+    onSearch: () -> Unit,
     onBarcode: () -> Unit,
     onCameraPhoto: () -> Unit,
     onGalleryPhoto: () -> Unit,
@@ -46,6 +47,7 @@ fun ScanSourceDialog(
             )
             Spacer(Modifier.height(12.dp))
 
+            Option("SEARCH DATABASE", "USDA + Open Food Facts.", onSearch)
             Option("SCAN BARCODE", "Packaged food. Works offline.", onBarcode)
             Option(
                 "PHOTO — CAMERA",

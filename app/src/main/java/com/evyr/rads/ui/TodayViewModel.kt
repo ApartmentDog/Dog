@@ -10,6 +10,7 @@ import com.evyr.rads.data.VerdictRules
 import com.evyr.rads.data.local.DatabaseProvider
 import com.evyr.rads.data.remote.GeminiVision
 import com.evyr.rads.data.remote.OpenFoodFacts
+import com.evyr.rads.data.remote.UsdaFoodSearch
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.data.local.HealthSnapshot
 import com.evyr.rads.data.local.UserProfile
@@ -75,6 +76,70 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     val scanState: StateFlow<ScanState> = _scanState.asStateFlow()
 
     fun clearScan() { _scanState.value = ScanState.Idle }
+
+    // ---- Food search ----
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<List<ScannedFood>>(emptyList())
+    val searchResults: StateFlow<List<ScannedFood>> = _searchResults.asStateFlow()
+
+    private val _searching = MutableStateFlow(false)
+    val searching: StateFlow<Boolean> = _searching.asStateFlow()
+
+    private val _searchMessage = MutableStateFlow<String?>(null)
+    val searchMessage: StateFlow<String?> = _searchMessage.asStateFlow()
+
+    private val _pendingPortion = MutableStateFlow<ScannedFood?>(null)
+    val pendingPortion: StateFlow<ScannedFood?> = _pendingPortion.asStateFlow()
+
+    fun setSearchQuery(q: String) { _searchQuery.value = q }
+
+    fun choosePortion(food: ScannedFood?) { _pendingPortion.value = food }
+
+    fun resetSearch() {
+        _searchQuery.value = ""
+        _searchResults.value = emptyList()
+        _searchMessage.value = null
+        _searching.value = false
+        _pendingPortion.value = null
+    }
+
+    /**
+     * USDA FoodData Central is the primary source; Open Food Facts fills in
+     * packaged items USDA misses. Results are merged, USDA first.
+     */
+    fun runSearch() {
+        val q = _searchQuery.value.trim()
+        if (q.isBlank()) return
+        viewModelScope.launch {
+            _searching.value = true
+            _searchMessage.value = null
+            _searchResults.value = emptyList()
+
+            val ctx = getApplication<Application>()
+            val usda = UsdaFoodSearch.search(q, SecureStore.usdaKey(ctx))
+            val off = runCatching { OpenFoodFacts.search(q) }.getOrDefault(emptyList())
+
+            val merged = when (usda) {
+                is UsdaFoodSearch.Result.Found -> usda.foods + off
+                is UsdaFoodSearch.Result.Empty -> off
+                is UsdaFoodSearch.Result.Failed -> {
+                    if (off.isEmpty()) {
+                        _searchMessage.value = usda.message
+                        emptyList()
+                    } else off
+                }
+            }
+
+            _searchResults.value = merged
+            if (merged.isEmpty() && _searchMessage.value == null) {
+                _searchMessage.value = "No matches for \"$q\".\n\nTry a simpler term, or use manual entry."
+            }
+            _searching.value = false
+        }
+    }
 
     fun aiEnabled(): Boolean = SecureStore.hasGeminiKey(getApplication<Application>())
 

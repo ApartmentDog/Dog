@@ -147,6 +147,24 @@ fun TabSetupView(
 
         Spacer(Modifier.height(4.dp))
         Hairline()
+        SectionLabel("FOOD DATABASE")
+        Text(
+            "USDA FoodData Central powers search. Blank uses a shared demo key that rate limits quickly — a free key from fdc.nal.usda.gov fixes that.",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 8.sp,
+            color = AmberFaint,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        val ctx0 = LocalContext.current
+        var usdaKey by remember { mutableStateOf(SecureStore.usdaKey(ctx0)) }
+        EditField("USDA KEY", usdaKey) {
+            usdaKey = it
+            SecureStore.setUsdaKey(ctx0, it)
+        }
+        StatRow("DB KEY", if (usdaKey.isNotBlank()) "SET" else "DEMO (limited)")
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
         SectionLabel("AI FOOD DETECTION")
         Text(
             "Optional. Barcode scanning works without this. A Gemini API key enables photo estimates for plates and menus.",

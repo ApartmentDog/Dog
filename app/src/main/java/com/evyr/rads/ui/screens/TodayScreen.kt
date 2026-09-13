@@ -39,6 +39,11 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
     val selectedId by vm.selectedEntryId.collectAsState()
     val syncStatus by vm.syncStatus.collectAsState()
     val scanState by vm.scanState.collectAsState()
+    val searchQuery by vm.searchQuery.collectAsState()
+    val searchResults by vm.searchResults.collectAsState()
+    val searching by vm.searching.collectAsState()
+    val searchMessage by vm.searchMessage.collectAsState()
+    val pendingPortion by vm.pendingPortion.collectAsState()
 
     val healthManager = remember { HealthConnectManager(context) }
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -56,6 +61,7 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
     var activeMeal by remember { mutableStateOf("breakfast") }
     var showAddDialog by remember { mutableStateOf(false) }
     var showScanPicker by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
 
     // Keep the ViewModel aware of where scans should land.
     vm.activeMealSlot = activeMeal
@@ -111,7 +117,10 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
         scrollProgress = scrollProgress,
         buttons = listOf(
             TerminalButtonSpec("LOG", selected = activeTab == "LOG") {
-                if (activeTab == "LOG") showAddDialog = true else activeTab = "LOG"
+                if (activeTab == "LOG") {
+                    vm.resetSearch()
+                    showSearch = true
+                } else activeTab = "LOG"
             },
             TerminalButtonSpec("SCAN", selected = false) {
                 activeTab = "LOG"
@@ -184,6 +193,7 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
         ScanSourceDialog(
             mealSlot = activeMeal,
             aiEnabled = vm.aiEnabled(),
+            onSearch = { showScanPicker = false; vm.resetSearch(); showSearch = true },
             onBarcode = { showScanPicker = false; launchBarcode() },
             onCameraPhoto = { showScanPicker = false; cameraLauncher.launch(null) },
             onGalleryPhoto = {
@@ -196,6 +206,33 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
             },
             onManual = { showScanPicker = false; showAddDialog = true },
             onDismiss = { showScanPicker = false }
+        )
+    }
+
+    if (showSearch) {
+        FoodSearchDialog(
+            mealSlot = activeMeal,
+            query = searchQuery,
+            results = searchResults,
+            searching = searching,
+            message = searchMessage,
+            onQueryChange = { vm.setSearchQuery(it) },
+            onSearch = { vm.runSearch() },
+            onPick = { vm.choosePortion(it) },
+            onManual = { showSearch = false; showAddDialog = true },
+            onDismiss = { showSearch = false; vm.resetSearch() }
+        )
+    }
+
+    pendingPortion?.let { food ->
+        QuantityDialog(
+            food = food,
+            onDismiss = { vm.choosePortion(null) },
+            onConfirm = { scaled ->
+                vm.choosePortion(null)
+                showSearch = false
+                vm.assess(scaled, activeMeal)
+            }
         )
     }
 
