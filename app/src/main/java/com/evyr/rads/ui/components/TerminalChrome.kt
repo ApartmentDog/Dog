@@ -83,6 +83,7 @@ fun TerminalChrome(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(340.dp)
                         .background(Color(0xFF0A0800), RoundedCornerShape(6.dp))
                         .padding(14.dp)
                 ) {

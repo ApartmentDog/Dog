@@ -32,7 +32,7 @@ fun TodayScreen(onNavigate: (Screen) -> Unit) {
 
     Box(
         modifier = Modifier.fillMaxSize().padding(16.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopCenter
     ) {
         TerminalChrome(
             buttons = listOf(
