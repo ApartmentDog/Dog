@@ -160,12 +160,24 @@ private fun ResultRow(food: ScannedFood, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(vertical = 7.dp, horizontal = 2.dp)
     ) {
-        Text(
-            "> ${food.name}",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
-            color = AmberBright
-        )
+        Row(Modifier.fillMaxWidth()) {
+            Text(
+                "> ${food.name}",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                color = AmberBright,
+                modifier = Modifier.weight(1f)
+            )
+            if (food.source == "vision") {
+                Text(
+                    "EST",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AmberWarn
+                )
+            }
+        }
         Text(
             "${food.calories} kcal  F ${food.fatGrams}g  P ${food.proteinGrams}g  C ${food.carbGrams}g",
             fontFamily = FontFamily.Monospace,

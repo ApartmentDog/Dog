@@ -142,20 +142,53 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             val usda = UsdaFoodSearch.search(q, SecureStore.usdaKey(ctx))
             val off = runCatching { OpenFoodFacts.search(q) }.getOrDefault(emptyList())
 
+            var usdaError: String? = null
             val merged = when (usda) {
                 is UsdaFoodSearch.Result.Found -> usda.foods + off
                 is UsdaFoodSearch.Result.Empty -> off
                 is UsdaFoodSearch.Result.Failed -> {
-                    if (off.isEmpty()) {
-                        _searchMessage.value = usda.message
-                        emptyList()
-                    } else off
+                    usdaError = usda.message
+                    off
                 }
             }
 
-            _searchResults.value = merged
-            if (merged.isEmpty() && _searchMessage.value == null) {
-                _searchMessage.value = "No matches for \"$q\".\n\nTry a simpler term, or use manual entry."
+            if (merged.isNotEmpty()) {
+                _searchResults.value = merged
+                _searching.value = false
+                return@launch
+            }
+
+            // Tier 3: neither database has it. Fall back to an AI estimate,
+            // which is where chain-restaurant items usually land.
+            val key = SecureStore.geminiKey(ctx)
+            if (key.isBlank()) {
+                _searchMessage.value = usdaError
+                    ?: "No matches for \"$q\".\n\nAdd a Gemini key in SETUP to estimate items the databases don't carry, or use manual entry."
+                _searching.value = false
+                return@launch
+            }
+
+            _searchMessage.value = "NOT IN DATABASES — ESTIMATING..."
+            when (val ai = GeminiVision.estimateFromText(key, SecureStore.geminiModel(ctx), q)) {
+                is GeminiVision.Result.Found -> {
+                    _searchResults.value = ai.foods
+                    _searchMessage.value = null
+                }
+                is GeminiVision.Result.ModelRetired -> {
+                    SecureStore.setGeminiModel(ctx, ai.suggested)
+                    when (val retry =
+                        GeminiVision.estimateFromText(key, ai.suggested, q)) {
+                        is GeminiVision.Result.Found -> {
+                            _searchResults.value = retry.foods
+                            _searchMessage.value = null
+                        }
+                        else -> _searchMessage.value =
+                            "No matches for \"$q\". Try manual entry."
+                    }
+                }
+                is GeminiVision.Result.Failed ->
+                    _searchMessage.value = usdaError
+                        ?: "No matches for \"$q\".\n\n${ai.message}"
             }
             _searching.value = false
         }

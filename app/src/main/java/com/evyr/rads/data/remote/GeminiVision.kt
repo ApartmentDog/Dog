@@ -30,6 +30,34 @@ object GeminiVision {
         data class ModelRetired(val suggested: String) : Result()
     }
 
+    private const val TEXT_PROMPT = """
+You are a nutrition estimator with good knowledge of US chain restaurant menus.
+
+The user searched for a food that is not in the USDA or Open Food Facts
+databases. Identify the most likely item(s) and give the nutrition for the
+standard portion the restaurant or recipe actually serves.
+
+Respond with ONLY a JSON array, no markdown fences, no commentary:
+[
+  {
+    "name": "brand and item name",
+    "calories": 0,
+    "fat_g": 0,
+    "saturated_fat_g": 0,
+    "protein_g": 0,
+    "carbs_g": 0,
+    "portion": "the portion these numbers describe, e.g. 1 biscuit",
+    "confidence": "high" | "medium" | "low"
+  }
+]
+
+Rules:
+- Use the chain's own published nutrition where you know it.
+- Numbers are for ONE standard portion, not per 100 g.
+- At most 5 entries, best match first.
+- If you have no idea, return [].
+"""
+
     private const val PROMPT = """
 You are a nutrition estimator. Look at the image and identify the food items.
 
@@ -56,6 +84,29 @@ Rules:
 - If you cannot identify any food, return [].
 """
 
+    /** Text fallback for items neither database carries. */
+    suspend fun estimateFromText(
+        apiKey: String,
+        model: String,
+        query: String
+    ): Result = withContext(Dispatchers.IO) {
+        if (apiKey.isBlank()) return@withContext Result.Failed("No API key set.")
+        try {
+            val payload = JSONObject().apply {
+                put("contents", JSONArray().put(
+                    JSONObject().put("parts", JSONArray()
+                        .put(JSONObject().put("text", TEXT_PROMPT))
+                        .put(JSONObject().put("text", "Search term: $query"))
+                    )
+                ))
+                put("generationConfig", JSONObject().put("temperature", 0.2))
+            }
+            request(apiKey, model, payload)
+        } catch (e: Exception) {
+            Result.Failed(e.message ?: "Estimate failed.")
+        }
+    }
+
     suspend fun analyze(
         apiKey: String,
         model: String,
@@ -78,15 +129,23 @@ Rules:
                 put("generationConfig", JSONObject().put("temperature", 0.2))
             }
 
+            request(apiKey, model, payload)
+        } catch (e: Exception) {
+            Result.Failed(e.message ?: "Vision error.")
+        }
+    }
+
+    private fun request(apiKey: String, model: String, payload: JSONObject): Result {
+        try {
             val url =
                 "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
 
-            val request = Request.Builder()
+            val req = Request.Builder()
                 .url(url)
                 .post(payload.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
-            client.newCall(request).execute().use { response ->
+            client.newCall(req).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
                     val msg = runCatching {
@@ -102,11 +161,11 @@ Rules:
                             .firstOrNull { it != model }
                     }
                     if (replacement != null) {
-                        return@withContext Result.ModelRetired(replacement)
+                        return Result.ModelRetired(replacement)
                     }
 
-                    return@withContext Result.Failed(
-                        msg ?: "Vision request failed (${response.code})."
+                    return Result.Failed(
+                        msg ?: "Request failed (${response.code})."
                     )
                 }
 
@@ -118,7 +177,7 @@ Rules:
                         .getJSONArray("parts")
                         .getJSONObject(0)
                         .getString("text")
-                }.getOrNull() ?: return@withContext Result.Failed("Unexpected response shape.")
+                }.getOrNull() ?: return Result.Failed("Unexpected response shape.")
 
                 val cleaned = text
                     .replace("```json", "")
@@ -126,10 +185,10 @@ Rules:
                     .trim()
 
                 val arr = runCatching { JSONArray(cleaned) }.getOrNull()
-                    ?: return@withContext Result.Failed("Could not read the estimate.")
+                    ?: return Result.Failed("Could not read the estimate.")
 
                 if (arr.length() == 0) {
-                    return@withContext Result.Failed("No food identified in that image.")
+                    return Result.Failed("No match found.")
                 }
 
                 val foods = buildList {
@@ -151,10 +210,10 @@ Rules:
                         )
                     }
                 }
-                Result.Found(foods)
+                return Result.Found(foods)
             }
         } catch (e: Exception) {
-            Result.Failed(e.message ?: "Vision error.")
+            return Result.Failed(e.message ?: "Request failed.")
         }
     }
 }
