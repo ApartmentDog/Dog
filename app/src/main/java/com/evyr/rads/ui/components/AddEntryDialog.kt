@@ -41,6 +41,7 @@ fun AddEntryDialog(
     var fat by remember { mutableStateOf("") }
     var protein by remember { mutableStateOf("") }
     var carbs by remember { mutableStateOf("") }
+    var servings by remember { mutableStateOf("1") }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -59,9 +60,22 @@ fun AddEntryDialog(
 
             TerminalField("NAME", name) { name = it }
             TerminalField("CAL", calories, numeric = true) { calories = it }
-            TerminalField("FAT g", fat, numeric = true) { fat = it }
-            TerminalField("PROTEIN g", protein, numeric = true) { protein = it }
-            TerminalField("CARBS g", carbs, numeric = true) { carbs = it }
+            TerminalField("FAT g", fat, numeric = true, decimal = true) { fat = it }
+            TerminalField("PROTEIN g", protein, numeric = true, decimal = true) { protein = it }
+            TerminalField("CARBS g", carbs, numeric = true, decimal = true) { carbs = it }
+            TerminalField("SERVINGS", servings, numeric = true, decimal = true) { servings = it }
+
+            val mult = servings.toDoubleOrNull() ?: 1.0
+            if (mult != 1.0) {
+                Text(
+                    "= ${((calories.toIntOrNull() ?: 0) * mult).toInt()} kcal, " +
+                        "${entryFmt((fat.toDoubleOrNull() ?: 0.0) * mult)}g fat",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    color = AmberFaint,
+                    modifier = Modifier.padding(start = 90.dp, top = 2.dp)
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -80,12 +94,13 @@ fun AddEntryDialog(
                     color = Amber,
                     modifier = Modifier.clickable {
                         if (name.isNotBlank()) {
+                            val m = servings.toDoubleOrNull() ?: 1.0
                             onConfirm(
                                 name.trim(),
-                                calories.toIntOrNull() ?: 0,
-                                fat.toDoubleOrNull() ?: 0.0,
-                                protein.toDoubleOrNull() ?: 0.0,
-                                carbs.toDoubleOrNull() ?: 0.0
+                                ((calories.toIntOrNull() ?: 0) * m).toInt(),
+                                entryRound1((fat.toDoubleOrNull() ?: 0.0) * m),
+                                entryRound1((protein.toDoubleOrNull() ?: 0.0) * m),
+                                entryRound1((carbs.toDoubleOrNull() ?: 0.0) * m)
                             )
                         }
                     }
@@ -100,6 +115,7 @@ private fun TerminalField(
     label: String,
     value: String,
     numeric: Boolean = false,
+    decimal: Boolean = false,
     onValueChange: (String) -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -121,7 +137,9 @@ private fun TerminalField(
             ),
             cursorBrush = SolidColor(Amber),
             keyboardOptions = if (numeric) {
-                KeyboardOptions(keyboardType = KeyboardType.Number)
+                KeyboardOptions(
+                    keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number
+                )
             } else {
                 KeyboardOptions.Default
             },
@@ -132,3 +150,9 @@ private fun TerminalField(
         )
     }
 }
+
+
+private fun entryRound1(v: Double): Double = kotlin.math.round(v * 10) / 10.0
+
+private fun entryFmt(v: Double): String =
+    if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.1f", v)

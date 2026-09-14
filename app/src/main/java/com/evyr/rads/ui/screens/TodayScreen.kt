@@ -263,7 +263,7 @@ fun TodayScreen() {
         is TodayViewModel.ScanState.Choose ->
             ScanResultPicker(
                 foods = s.foods,
-                onPick = { vm.assess(it, activeMeal) },
+                onPick = { vm.clearScan(); vm.choosePortion(it) },
                 onDismiss = { vm.clearScan() }
             )
         is TodayViewModel.ScanState.Assess ->

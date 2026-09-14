@@ -147,7 +147,10 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _scanState.value = ScanState.Working("LOOKING UP $barcode...")
             when (val r = OpenFoodFacts.lookup(barcode)) {
-                is OpenFoodFacts.Result.Found -> assess(r.food)
+                is OpenFoodFacts.Result.Found -> {
+                    _scanState.value = ScanState.Idle
+                    choosePortion(r.food)
+                }
                 is OpenFoodFacts.Result.NotFound ->
                     _scanState.value = ScanState.Message(
                         "Barcode ${r.barcode} isn't in the database.\n\nEnter it manually instead."
@@ -169,8 +172,10 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             _scanState.value = ScanState.Working("ANALYSING IMAGE...")
             when (val r = GeminiVision.analyze(key, SecureStore.geminiModel(ctx), bytes)) {
                 is GeminiVision.Result.Found ->
-                    if (r.foods.size == 1) assess(r.foods.first())
-                    else _scanState.value = ScanState.Choose(r.foods)
+                    if (r.foods.size == 1) {
+                        _scanState.value = ScanState.Idle
+                        choosePortion(r.foods.first())
+                    } else _scanState.value = ScanState.Choose(r.foods)
                 is GeminiVision.Result.Failed ->
                     _scanState.value = ScanState.Message(r.message)
             }

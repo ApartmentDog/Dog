@@ -225,9 +225,36 @@ fun QuantityDialog(
             }
 
             Spacer(Modifier.height(12.dp))
+
+            // Quick picks — faster than typing for the common cases.
+            Text(
+                "SERVINGS",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 9.sp,
+                color = AmberDim
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
+                listOf("0.5", "1", "1.5", "2", "3").forEach { preset ->
+                    val isSel = qty.trim() == preset ||
+                        (preset == "1" && qty.trim() == "1.0")
+                    Text(
+                        text = preset,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSel) AmberBright else AmberFaint,
+                        modifier = Modifier
+                            .clickable { qty = preset }
+                            .background(if (isSel) RowHighlight else ScreenInk)
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+            }
+
             Row(Modifier.fillMaxWidth()) {
                 Text(
-                    "QUANTITY",
+                    "OR TYPE",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 10.sp,
                     color = AmberDim,
