@@ -170,7 +170,18 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             _scanState.value = ScanState.Working("ANALYSING IMAGE...")
-            when (val r = GeminiVision.analyze(key, SecureStore.geminiModel(ctx), bytes)) {
+
+            var result = GeminiVision.analyze(key, SecureStore.geminiModel(ctx), bytes)
+
+            // Google retired the saved model: adopt the suggested one and retry once.
+            if (result is GeminiVision.Result.ModelRetired) {
+                val suggested = result.suggested
+                SecureStore.setGeminiModel(ctx, suggested)
+                _scanState.value = ScanState.Working("MODEL UPDATED. RETRYING...")
+                result = GeminiVision.analyze(key, suggested, bytes)
+            }
+
+            when (val r = result) {
                 is GeminiVision.Result.Found ->
                     if (r.foods.size == 1) {
                         _scanState.value = ScanState.Idle
@@ -178,6 +189,10 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                     } else _scanState.value = ScanState.Choose(r.foods)
                 is GeminiVision.Result.Failed ->
                     _scanState.value = ScanState.Message(r.message)
+                is GeminiVision.Result.ModelRetired ->
+                    _scanState.value = ScanState.Message(
+                        "Model name is out of date. Set it to \"${r.suggested}\" in SETUP."
+                    )
             }
         }
     }

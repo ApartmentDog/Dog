@@ -15,7 +15,19 @@ object SecureStore {
     private const val KEY_MODEL = "gemini_model"
     private const val KEY_USDA = "usda_api_key"
 
-    const val DEFAULT_MODEL = "gemini-2.0-flash"
+    const val DEFAULT_MODEL = "gemini-3.6-flash"
+
+    /**
+     * Model names get retired. Anything here is silently upgraded to the
+     * current default so a saved-but-dead name doesn't break scanning.
+     */
+    private val RETIRED_MODELS = setOf(
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-2.5-flash"
+    )
 
     private fun prefs(context: Context): SharedPreferences {
         val masterKey = MasterKey.Builder(context.applicationContext)
@@ -39,7 +51,11 @@ object SecureStore {
 
     fun geminiModel(context: Context): String =
         runCatching {
-            prefs(context).getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
+            val stored = prefs(context).getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
+            if (stored.isBlank() || stored in RETIRED_MODELS) {
+                setGeminiModel(context, DEFAULT_MODEL)
+                DEFAULT_MODEL
+            } else stored
         }.getOrDefault(DEFAULT_MODEL)
 
     fun setGeminiModel(context: Context, value: String) {

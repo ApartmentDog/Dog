@@ -26,6 +26,8 @@ object GeminiVision {
     sealed class Result {
         data class Found(val foods: List<ScannedFood>) : Result()
         data class Failed(val message: String) : Result()
+        /** The model name is dead; the API suggested this one instead. */
+        data class ModelRetired(val suggested: String) : Result()
     }
 
     private const val PROMPT = """
@@ -90,6 +92,19 @@ Rules:
                     val msg = runCatching {
                         JSONObject(body).optJSONObject("error")?.optString("message")
                     }.getOrNull()
+
+                    // Google retires model names and names the replacement in
+                    // the error text. Pull it out so the caller can retry.
+                    val replacement = msg?.let { text ->
+                        Regex("models/([a-zA-Z0-9._-]+)")
+                            .findAll(text)
+                            .map { it.groupValues[1] }
+                            .firstOrNull { it != model }
+                    }
+                    if (replacement != null) {
+                        return@withContext Result.ModelRetired(replacement)
+                    }
+
                     return@withContext Result.Failed(
                         msg ?: "Vision request failed (${response.code})."
                     )
