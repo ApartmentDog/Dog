@@ -61,6 +61,7 @@ fun TodayScreen() {
     var showAddDialog by remember { mutableStateOf(false) }
     var showScanPicker by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
+    var showBarcodeEntry by remember { mutableStateOf(false) }
 
     // Keep the ViewModel aware of where scans should land.
     vm.activeMealSlot = activeMeal
@@ -202,6 +203,7 @@ fun TodayScreen() {
             aiEnabled = vm.aiEnabled(),
             onSearch = { showScanPicker = false; vm.resetSearch(); showSearch = true },
             onBarcode = { showScanPicker = false; launchBarcode() },
+            onTypeBarcode = { showScanPicker = false; showBarcodeEntry = true },
             onCameraPhoto = { showScanPicker = false; cameraLauncher.launch(null) },
             onGalleryPhoto = {
                 showScanPicker = false
@@ -213,6 +215,16 @@ fun TodayScreen() {
             },
             onManual = { showScanPicker = false; showAddDialog = true },
             onDismiss = { showScanPicker = false }
+        )
+    }
+
+    if (showBarcodeEntry) {
+        BarcodeEntryDialog(
+            onSubmit = { code ->
+                showBarcodeEntry = false
+                vm.onBarcodeScanned(code)
+            },
+            onDismiss = { showBarcodeEntry = false }
         )
     }
 

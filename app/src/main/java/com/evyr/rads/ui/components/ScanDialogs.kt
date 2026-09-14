@@ -8,12 +8,23 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -26,6 +37,7 @@ fun ScanSourceDialog(
     aiEnabled: Boolean,
     onSearch: () -> Unit,
     onBarcode: () -> Unit,
+    onTypeBarcode: () -> Unit,
     onCameraPhoto: () -> Unit,
     onGalleryPhoto: () -> Unit,
     onManual: () -> Unit,
@@ -49,6 +61,7 @@ fun ScanSourceDialog(
 
             Option("SEARCH DATABASE", "USDA + Open Food Facts.", onSearch)
             Option("SCAN BARCODE", "Packaged food. Works offline.", onBarcode)
+            Option("TYPE BARCODE", "Enter the digits by hand.", onTypeBarcode)
             Option(
                 "PHOTO — CAMERA",
                 if (aiEnabled) "Plate or menu. Uses AI estimate."
@@ -192,6 +205,92 @@ fun ScanStatusDialog(message: String, onDismiss: () -> Unit) {
                 color = AmberDim,
                 modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
             )
+        }
+    }
+}
+
+
+/** Manual barcode entry for when the scanner won't cooperate. */
+@Composable
+fun BarcodeEntryDialog(
+    onSubmit: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var code by remember { mutableStateOf("") }
+    val valid = code.trim().length in 6..14 && code.trim().all { it.isDigit() }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(ScreenBlack, RoundedCornerShape(8.dp))
+                .padding(18.dp)
+        ) {
+            Text(
+                "> ENTER BARCODE",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Amber
+            )
+            Text(
+                "The digits printed under the bars. UPC-A is 12, EAN-13 is 13.",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 8.sp,
+                color = AmberFaint,
+                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+            )
+
+            BasicTextField(
+                value = code,
+                onValueChange = { input -> code = input.filter { it.isDigit() }.take(14) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
+                ),
+                textStyle = TextStyle(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 18.sp,
+                    letterSpacing = 2.sp,
+                    color = Amber
+                ),
+                cursorBrush = SolidColor(Amber),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ScreenInk, RoundedCornerShape(2.dp))
+                    .padding(horizontal = 10.dp, vertical = 10.dp)
+            )
+
+            Text(
+                "${code.length} DIGITS",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 8.sp,
+                color = if (valid) AmberBright else AmberFaint,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth()) {
+                Text(
+                    "[CANCEL]",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    color = AmberDim,
+                    modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
+                )
+                Spacer(Modifier.width(20.dp))
+                Text(
+                    "[LOOK UP]",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (valid) AmberBright else AmberFaint,
+                    modifier = Modifier
+                        .clickable(enabled = valid) { onSubmit(code.trim()) }
+                        .padding(4.dp)
+                )
+            }
         }
     }
 }
