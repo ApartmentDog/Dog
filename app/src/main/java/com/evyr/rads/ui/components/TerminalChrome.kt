@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.BuildConfig
 import com.evyr.rads.ui.theme.*
 import kotlin.random.Random
 
@@ -80,13 +81,21 @@ fun TerminalChrome(
                 Spacer(Modifier.width(12.dp))
                 VentBank(slats = 5, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(12.dp))
-                Text(
-                    "R.A.D.S.",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = SandShadow
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "R.A.D.S.",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SandShadow
+                    )
+                    Text(
+                        "v${BuildConfig.VERSION_NAME}.${BuildConfig.VERSION_CODE}",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 7.sp,
+                        color = SandDeep
+                    )
+                }
                 Spacer(Modifier.width(12.dp))
                 Screw()
             }

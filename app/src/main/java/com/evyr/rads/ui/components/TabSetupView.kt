@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.evyr.rads.BuildConfig
 import com.evyr.rads.data.AppPrefs
 import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.Units
@@ -219,6 +220,14 @@ fun TabSetupView(
             p.dailyAdjustment().let { if (it >= 0) "+$it" else "$it" } + " kcal"
         )
         StatRow("TARGET", "${p.calorieTarget()} kcal", emphasize = true)
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
+        SectionLabel("SYSTEM")
+        StatRow("VERSION", BuildConfig.VERSION_NAME, emphasize = true)
+        StatRow("BUILD", BuildConfig.VERSION_CODE.toString())
+        StatRow("PACKAGE", BuildConfig.APPLICATION_ID)
+        StatRow("AI MODEL", SecureStore.geminiModel(bootCtx))
 
         Spacer(Modifier.height(12.dp))
     }
