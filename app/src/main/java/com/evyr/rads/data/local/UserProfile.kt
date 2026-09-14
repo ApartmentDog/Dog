@@ -6,6 +6,10 @@ import androidx.room.PrimaryKey
 import kotlin.math.abs
 import kotlin.math.ceil
 
+/** Single source for fallbacks used when no profile exists yet. */
+const val DEFAULT_FAT_WARN_GRAMS = 15.0
+const val DEFAULT_CALORIE_TARGET = 2000
+
 @Entity(tableName = "user_profile")
 data class UserProfile(
     @PrimaryKey val id: Int = 1,
@@ -25,7 +29,7 @@ data class UserProfile(
      * Per-meal fat ceiling in grams. Deliberately per-meal, never a daily
      * budget — firm dietary requirement, do not aggregate.
      */
-    val fatWarnGramsPerMeal: Double = 15.0,
+    val fatWarnGramsPerMeal: Double = DEFAULT_FAT_WARN_GRAMS,
     val onboarded: Boolean = false
 ) {
     fun bmr(): Double {

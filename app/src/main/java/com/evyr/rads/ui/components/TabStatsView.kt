@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.sp
 import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.data.local.HealthSnapshot
+import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
+import com.evyr.rads.data.local.DEFAULT_CALORIE_TARGET
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.ui.theme.*
 
@@ -31,7 +33,7 @@ fun TabStatsView(
 ) {
     Column(Modifier.fillMaxWidth().verticalScroll(scrollState)) {
 
-        val target = profile?.calorieTarget() ?: 2000
+        val target = profile?.calorieTarget() ?: DEFAULT_CALORIE_TARGET
         val totalCals = entries.sumOf { it.calories }
         val totalProtein = entries.sumOf { it.proteinGrams }
         val totalCarbs = entries.sumOf { it.carbGrams }
@@ -52,7 +54,7 @@ fun TabStatsView(
             color = AmberFaint,
             modifier = Modifier.padding(bottom = 4.dp)
         )
-        val limit = profile?.fatWarnGramsPerMeal ?: 15.0
+        val limit = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
         mealSlots.forEach { slot ->
             val slotFat = entries.filter { it.mealSlot == slot }.sumOf { it.fatGrams }
             BarMeter(

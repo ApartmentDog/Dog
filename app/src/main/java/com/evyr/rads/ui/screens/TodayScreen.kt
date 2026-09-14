@@ -25,6 +25,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import com.evyr.rads.data.local.DEFAULT_CALORIE_TARGET
+import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
 import com.evyr.rads.health.HealthConnectManager
 import com.evyr.rads.ui.TodayViewModel
 import com.evyr.rads.ui.components.*
@@ -77,7 +79,8 @@ fun TodayScreen() {
     }
 
     var activeTab by remember { mutableStateOf("LOG") }
-    var activeMeal by remember { mutableStateOf("breakfast") }
+    // Default to the meal that matches the clock, not whatever comes first.
+    var activeMeal by remember { mutableStateOf(vm.mealSlotForNow()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showScanPicker by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
@@ -126,7 +129,7 @@ fun TodayScreen() {
 
     val mealEntries = entries.filter { it.mealSlot == activeMeal }
     val selectedEntry = entries.firstOrNull { it.id == selectedId }
-    val fatLimit = profile?.fatWarnGramsPerMeal ?: 15.0
+    val fatLimit = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
 
     fun launchBarcode() {
         val options = GmsBarcodeScannerOptions.Builder()
@@ -181,7 +184,7 @@ fun TodayScreen() {
                     mealSlots = MEAL_SLOTS,
                     activeMeal = activeMeal,
                     dayEntries = entries,
-                    calorieTarget = profile?.calorieTarget() ?: 2000,
+                    calorieTarget = profile?.calorieTarget() ?: DEFAULT_CALORIE_TARGET,
                     entries = mealEntries,
                     selectedEntry = selectedEntry,
                     fatWarnGrams = fatLimit,

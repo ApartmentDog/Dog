@@ -14,6 +14,7 @@ import com.evyr.rads.data.remote.OpenFoodFacts
 import com.evyr.rads.data.remote.UsdaFoodSearch
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.data.local.HealthSnapshot
+import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.health.HealthConnectManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -75,6 +76,22 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         if (followToday && _viewDate.value != now) {
             _viewDate.value = now
             selectEntry(null)
+        }
+        // Steps and exercise keep climbing all day, so re-read on every
+        // return to the app rather than trusting the value from launch.
+        if (followToday) {
+            viewModelScope.launch { syncQuietly() }
+        }
+    }
+
+    /** The meal slot that matches the current time of day. */
+    fun mealSlotForNow(): String {
+        val h = java.time.LocalTime.now(zone).hour
+        return when {
+            h < 10 -> "breakfast"
+            h < 15 -> "lunch"
+            h < 21 -> "dinner"
+            else -> "snack"
         }
     }
 
@@ -304,7 +321,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     fun assess(food: ScannedFood, mealSlot: String? = null) {
         viewModelScope.launch {
             val slot = mealSlot ?: activeMealSlot
-            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: 15.0
+            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
             val already = entries.value
                 .filter { it.mealSlot == slot }
                 .sumOf { it.fatGrams }
@@ -320,7 +337,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
     fun commitScanned(food: ScannedFood, mealSlot: String) {
         viewModelScope.launch {
-            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: 15.0
+            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
             val over = food.fatGrams >= limit
             foodDao.insert(
                 FoodLogEntry(
@@ -374,7 +391,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         carbGrams: Double
     ) {
         viewModelScope.launch {
-            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: 15.0
+            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
             val overLimit = fatGrams >= limit
             foodDao.insert(
                 FoodLogEntry(

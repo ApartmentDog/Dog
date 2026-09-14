@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evyr.rads.data.Units
+import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.ui.theme.*
 
@@ -215,7 +216,7 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
                                         rateLbsPerWeek = rate.toDoubleOrNull() ?: 1.0,
                                         activityLevel = activity,
                                         useImperial = imperial,
-                                        fatWarnGramsPerMeal = fatLimit.toDoubleOrNull() ?: 15.0,
+                                        fatWarnGramsPerMeal = fatLimit.toDoubleOrNull() ?: DEFAULT_FAT_WARN_GRAMS,
                                         onboarded = true
                                     )
                                 )
