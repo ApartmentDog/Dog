@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,6 +39,7 @@ import com.evyr.rads.ui.theme.*
 
 @Composable
 fun TabSetupView(
+    scrollState: ScrollState,
     profile: UserProfile?,
     onUpdate: (UserProfile) -> Unit
 ) {
@@ -46,7 +47,7 @@ fun TabSetupView(
     val imp = p.useImperial
     val wLabel = if (imp) "lb" else "kg"
 
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxWidth().verticalScroll(scrollState)) {
 
         SectionLabel("UNITS")
         ChoiceRow("MEASUREMENT", listOf("imperial", "metric"),

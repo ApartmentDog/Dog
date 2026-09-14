@@ -5,7 +5,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -87,11 +90,20 @@ fun TodayScreen() {
     }
 
     val listState = rememberLazyListState()
+    val statsScroll = rememberScrollState()
+    val syncScroll = rememberScrollState()
+    val setupScroll = rememberScrollState()
+
+    // The wheel follows whichever tab is actually on screen.
     val scrollProgress by remember {
         derivedStateOf {
-            val total = listState.layoutInfo.totalItemsCount
-            if (total <= 1) 0f
-            else listState.firstVisibleItemIndex.toFloat() / (total - 1).toFloat()
+            when (activeTab) {
+                "LOG" -> lazyProgress(listState)
+                "STATS" -> linearProgress(statsScroll)
+                "SYNC" -> linearProgress(syncScroll)
+                "SETUP" -> linearProgress(setupScroll)
+                else -> 0f
+            }
         }
     }
 
@@ -157,12 +169,14 @@ fun TodayScreen() {
                     onDeleteEntry = { vm.deleteEntry(it) }
                 )
                 "STATS" -> TabStatsView(
+                    scrollState = statsScroll,
                     entries = entries,
                     profile = profile,
                     health = health,
                     mealSlots = MEAL_SLOTS
                 )
                 "SYNC" -> TabSyncView(
+                    scrollState = syncScroll,
                     status = syncStatus,
                     availability = healthManager.availability(),
                     health = health,
@@ -179,6 +193,7 @@ fun TodayScreen() {
                     }
                 )
                 "SETUP" -> TabSetupView(
+                    scrollState = setupScroll,
                     profile = profile,
                     onUpdate = { vm.saveProfile(it) }
                 )
@@ -282,3 +297,23 @@ private fun readBytes(context: Context, uri: android.net.Uri): ByteArray? =
     runCatching {
         context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
     }.getOrNull()
+
+
+/** Smooth 0..1 position through a lazy list, including partial item offset. */
+private fun lazyProgress(state: LazyListState): Float {
+    val info = state.layoutInfo
+    val total = info.totalItemsCount
+    if (total <= 0) return 0f
+    val first = info.visibleItemsInfo.firstOrNull() ?: return 0f
+    val withinItem =
+        if (first.size > 0) (-first.offset).toFloat() / first.size.toFloat() else 0f
+    return ((state.firstVisibleItemIndex + withinItem) / total.toFloat())
+        .coerceIn(0f, 1f)
+}
+
+/** 0..1 position through a normal scrolling column. */
+private fun linearProgress(state: ScrollState): Float {
+    val max = state.maxValue
+    if (max <= 0) return 0f
+    return (state.value.toFloat() / max.toFloat()).coerceIn(0f, 1f)
+}

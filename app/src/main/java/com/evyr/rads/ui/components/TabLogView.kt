@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -38,6 +39,15 @@ fun TabLogView(
     onSelectEntry: (FoodLogEntry) -> Unit,
     onDeleteEntry: (FoodLogEntry) -> Unit
 ) {
+    // Expanding an entry can push its own header off-screen; bring it back.
+    LaunchedEffect(selectedEntry?.id) {
+        val id = selectedEntry?.id ?: return@LaunchedEffect
+        val index = entries.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            runCatching { listState.animateScrollToItem(index) }
+        }
+    }
+
     Column(Modifier.fillMaxWidth()) {
 
         // ---- Whole-day totals ----

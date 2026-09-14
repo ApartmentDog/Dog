@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,12 +22,13 @@ import com.evyr.rads.ui.theme.*
 
 @Composable
 fun TabStatsView(
+    scrollState: ScrollState,
     entries: List<FoodLogEntry>,
     profile: UserProfile?,
     health: HealthSnapshot?,
     mealSlots: List<String>
 ) {
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxWidth().verticalScroll(scrollState)) {
 
         val target = profile?.calorieTarget() ?: 2000
         val totalCals = entries.sumOf { it.calories }

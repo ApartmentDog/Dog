@@ -402,7 +402,8 @@ private fun ScrollWheel(progress: Float, modifier: Modifier = Modifier) {
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val spacing = 11f
-            val offset = (progress.coerceIn(0f, 1f) * spacing * 4f) % spacing
+            // Enough turns across the full range that movement reads clearly.
+            val offset = (progress.coerceIn(0f, 1f) * spacing * 26f) % spacing
             var y = -spacing + offset
             while (y < size.height + spacing) {
                 drawLine(
