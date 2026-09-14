@@ -1,5 +1,6 @@
 package com.evyr.rads.data.remote
 
+import com.evyr.rads.data.FoodPortion
 import com.evyr.rads.data.ScannedFood
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -131,9 +132,62 @@ object UsdaFoodSearch {
             saturatedFatGrams = round1(nutrient(N_SATFAT) * factor).takeIf { it > 0 },
             servingNote = note,
             basisGrams = if (scalable) null else 100.0,
+            sourceId = f.optLong("fdcId", 0L).takeIf { it > 0 }?.toString(),
             source = "usda"
         )
     }
+
+    /**
+     * Real portions published for a food — "1 biscuit", "1 sandwich", "1 cup".
+     * Used instead of asking someone to weigh a fast-food item.
+     */
+    suspend fun portions(fdcId: String, apiKey: String): List<FoodPortion> =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = "https://api.nal.usda.gov/fdc/v1/food/$fdcId".toHttpUrl()
+                    .newBuilder()
+                    .addQueryParameter("api_key", apiKey.ifBlank { DEMO_KEY })
+                    .build()
+
+                client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                    if (!response.isSuccessful) return@withContext emptyList()
+                    val body = response.body?.string().orEmpty()
+                    if (body.isBlank()) return@withContext emptyList()
+
+                    val food = JSONObject(body)
+                    val arr = food.optJSONArray("foodPortions") ?: return@withContext emptyList()
+
+                    val out = mutableListOf<FoodPortion>()
+                    for (i in 0 until arr.length()) {
+                        val o = arr.optJSONObject(i) ?: continue
+                        val grams = o.optDouble("gramWeight", 0.0)
+                        if (grams <= 0) continue
+
+                        val amount = o.optDouble("amount", 1.0)
+                        val unit = o.optJSONObject("measureUnit")?.optString("name", "").orEmpty()
+                        val modifier = o.optString("modifier", "").trim()
+                        val described = o.optString("portionDescription", "").trim()
+
+                        val label = when {
+                            described.isNotBlank() && described != "Quantity not specified" ->
+                                described
+                            unit.isNotBlank() && unit != "undetermined" ->
+                                "${trimNum(amount)} $unit" +
+                                    if (modifier.isNotBlank()) " $modifier" else ""
+                            modifier.isNotBlank() -> "${trimNum(amount)} $modifier"
+                            else -> "${grams.roundToInt()} g"
+                        }
+                        out += FoodPortion(label.take(46), grams)
+                    }
+                    out.distinctBy { it.label }.take(8)
+                }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+
+    private fun trimNum(v: Double): String =
+        if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.2f", v)
 
     private fun round1(v: Double): Double = (v * 10).roundToInt() / 10.0
 }

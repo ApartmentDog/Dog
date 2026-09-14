@@ -46,6 +46,7 @@ fun TodayScreen() {
     val searching by vm.searching.collectAsState()
     val searchMessage by vm.searchMessage.collectAsState()
     val pendingPortion by vm.pendingPortion.collectAsState()
+    val portionOptions by vm.portionOptions.collectAsState()
 
     val healthManager = remember { HealthConnectManager(context) }
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -261,6 +262,7 @@ fun TodayScreen() {
     pendingPortion?.let { food ->
         QuantityDialog(
             food = food,
+            portionOptions = portionOptions,
             onDismiss = { vm.choosePortion(null) },
             onConfirm = { scaled ->
                 vm.choosePortion(null)

@@ -16,9 +16,14 @@ data class ScannedFood(
      * instead of servings, so a 170 g biscuit isn't logged as 100 g.
      */
     val basisGrams: Double? = null,
+    /** FDC id, so real portion options can be fetched when needed. */
+    val sourceId: String? = null,
     val source: String,
     val confidence: String? = null
 )
+
+/** A real-world portion published for a food, e.g. "1 biscuit" at 170 g. */
+data class FoodPortion(val label: String, val gramWeight: Double)
 
 enum class Verdict { PASS, CAUTION, OVER_LIMIT }
 

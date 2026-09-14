@@ -3,6 +3,7 @@ package com.evyr.rads.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.evyr.rads.data.FoodPortion
 import com.evyr.rads.data.ScannedFood
 import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.VerdictResult
@@ -94,9 +95,27 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private val _pendingPortion = MutableStateFlow<ScannedFood?>(null)
     val pendingPortion: StateFlow<ScannedFood?> = _pendingPortion.asStateFlow()
 
+    /** Published portion options for the pending item, when the source has them. */
+    private val _portionOptions = MutableStateFlow<List<FoodPortion>>(emptyList())
+    val portionOptions: StateFlow<List<FoodPortion>> = _portionOptions.asStateFlow()
+
     fun setSearchQuery(q: String) { _searchQuery.value = q }
 
-    fun choosePortion(food: ScannedFood?) { _pendingPortion.value = food }
+    fun choosePortion(food: ScannedFood?) {
+        _pendingPortion.value = food
+        _portionOptions.value = emptyList()
+        // Only worth a lookup when we don't already have a per-serving figure.
+        val id = food?.sourceId
+        if (food != null && food.basisGrams != null && id != null) {
+            viewModelScope.launch {
+                val ctx = getApplication<Application>()
+                val found = UsdaFoodSearch.portions(id, SecureStore.usdaKey(ctx))
+                if (_pendingPortion.value?.sourceId == id) {
+                    _portionOptions.value = found
+                }
+            }
+        }
+    }
 
     fun resetSearch() {
         _searchQuery.value = ""
@@ -104,6 +123,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         _searchMessage.value = null
         _searching.value = false
         _pendingPortion.value = null
+        _portionOptions.value = emptyList()
     }
 
     /**

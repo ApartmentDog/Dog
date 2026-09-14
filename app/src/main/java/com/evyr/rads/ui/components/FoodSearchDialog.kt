@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -32,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.evyr.rads.data.FoodPortion
 import com.evyr.rads.data.ScannedFood
 import com.evyr.rads.ui.theme.*
 
@@ -187,6 +189,7 @@ private fun ResultRow(food: ScannedFood, onClick: () -> Unit) {
 @Composable
 fun QuantityDialog(
     food: ScannedFood,
+    portionOptions: List<FoodPortion> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (ScannedFood) -> Unit
 ) {
@@ -195,14 +198,22 @@ fun QuantityDialog(
     val gramsMode = food.basisGrams != null
     val basis = food.basisGrams ?: 1.0
 
+    // A chosen published portion overrides the raw amount box.
+    var chosenPortion by remember(food.name) { mutableStateOf<FoodPortion?>(null) }
     var amount by remember { mutableStateOf(if (gramsMode) "100" else "1") }
     val entered = amount.toDoubleOrNull() ?: if (gramsMode) basis else 1.0
-    val multiplier = if (gramsMode) entered / basis else entered
 
-    val presets = if (gramsMode)
-        listOf("50", "100", "150", "200", "250")
-    else
-        listOf("0.5", "1", "1.5", "2", "3")
+    val multiplier = when {
+        chosenPortion != null -> (chosenPortion!!.gramWeight / basis) * entered
+        gramsMode -> entered / basis
+        else -> entered
+    }
+
+    val presets = when {
+        chosenPortion != null -> listOf("0.5", "1", "1.5", "2", "3")
+        gramsMode -> listOf("50", "100", "150", "200", "250")
+        else -> listOf("0.5", "1", "1.5", "2", "3")
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -235,7 +246,7 @@ fun QuantityDialog(
                 )
             }
 
-            if (gramsMode) {
+            if (gramsMode && portionOptions.isEmpty()) {
                 Text(
                     "!! NO SERVING SIZE PUBLISHED — ENTER WEIGHT",
                     fontFamily = FontFamily.Monospace,
@@ -246,10 +257,44 @@ fun QuantityDialog(
                 )
             }
 
+            // Published portions first — nobody weighs a fast-food biscuit.
+            if (portionOptions.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "PORTION",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    color = AmberDim
+                )
+                portionOptions.forEach { option ->
+                    val isSel = chosenPortion?.label == option.label
+                    Text(
+                        text = (if (isSel) "> " else "  ") +
+                            "${option.label}  (${option.gramWeight.toInt()} g)",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSel) AmberBright else AmberFaint,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                chosenPortion = if (isSel) null else option
+                                amount = "1"
+                            }
+                            .background(if (isSel) RowHighlight else Color.Transparent)
+                            .padding(horizontal = 6.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
             Spacer(Modifier.height(12.dp))
 
             Text(
-                if (gramsMode) "GRAMS" else "SERVINGS",
+                when {
+                    chosenPortion != null -> "HOW MANY"
+                    gramsMode -> "GRAMS"
+                    else -> "SERVINGS"
+                },
                 fontFamily = FontFamily.Monospace,
                 fontSize = 9.sp,
                 color = AmberDim
@@ -333,9 +378,12 @@ fun QuantityDialog(
                                     carbGrams = round1(food.carbGrams * multiplier),
                                     saturatedFatGrams = food.saturatedFatGrams
                                         ?.let { round1(it * multiplier) },
-                                    servingNote = if (gramsMode)
-                                        "${entered.toInt()} g"
-                                    else food.servingNote,
+                                    servingNote = when {
+                                        chosenPortion != null ->
+                                            "${trimQty(entered)} x ${chosenPortion!!.label}"
+                                        gramsMode -> "${entered.toInt()} g"
+                                        else -> food.servingNote
+                                    },
                                     basisGrams = null
                                 )
                             )
@@ -348,3 +396,6 @@ fun QuantityDialog(
 }
 
 private fun round1(v: Double): Double = kotlin.math.round(v * 10) / 10.0
+
+private fun trimQty(v: Double): String =
+    if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.1f", v)
