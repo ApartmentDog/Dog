@@ -16,7 +16,10 @@ import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.data.local.HealthSnapshot
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.health.HealthConnectManager
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,17 +39,64 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private val zone: ZoneId = ZoneId.systemDefault()
     private val today: LocalDate get() = LocalDate.now(zone)
     private val dayKey: Long get() = today.toEpochDay()
-    private val dayStart: Long get() = today.atStartOfDay(zone).toInstant().toEpochMilli()
-    private val dayEnd: Long get() =
-        today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
 
+    /** The day being viewed. Follows the real date unless the user paged back. */
+    private val _viewDate = MutableStateFlow(LocalDate.now(zone))
+    val viewDate: StateFlow<LocalDate> = _viewDate.asStateFlow()
+
+    /** True while the view should roll over with the clock at midnight. */
+    private var followToday = true
+
+    val isViewingToday: StateFlow<Boolean> =
+        _viewDate.map { it == LocalDate.now(zone) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    private fun startOf(d: LocalDate) = d.atStartOfDay(zone).toInstant().toEpochMilli()
+    private fun endOf(d: LocalDate) =
+        d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     val entries: StateFlow<List<FoodLogEntry>> =
-        foodDao.getEntriesForDay(dayStart, dayEnd)
+        _viewDate.flatMapLatest { d -> foodDao.getEntriesForDay(startOf(d), endOf(d)) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val healthToday: StateFlow<HealthSnapshot?> =
-        healthDao.observeDay(dayKey)
+        _viewDate.flatMapLatest { d -> healthDao.observeDay(d.toEpochDay()) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * Called when the app comes back to the foreground. If the clock has
+     * crossed midnight, roll the view onto the new day; yesterday stays in
+     * the database and is reachable with the day arrows.
+     */
+    fun refreshDate() {
+        val now = LocalDate.now(zone)
+        if (followToday && _viewDate.value != now) {
+            _viewDate.value = now
+            selectEntry(null)
+        }
+    }
+
+    fun previousDay() {
+        followToday = false
+        _viewDate.value = _viewDate.value.minusDays(1)
+        selectEntry(null)
+    }
+
+    fun nextDay() {
+        val next = _viewDate.value.plusDays(1)
+        if (next.isAfter(LocalDate.now(zone))) return
+        _viewDate.value = next
+        followToday = next == LocalDate.now(zone)
+        selectEntry(null)
+    }
+
+    fun jumpToToday() {
+        followToday = true
+        _viewDate.value = LocalDate.now(zone)
+        selectEntry(null)
+    }
 
     val profile: StateFlow<UserProfile?> =
         profileDao.observe()
@@ -274,7 +324,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             val over = food.fatGrams >= limit
             foodDao.insert(
                 FoodLogEntry(
-                    timestamp = System.currentTimeMillis(),
+                    timestamp = timestampForViewedDay(),
                     mealSlot = mealSlot,
                     name = food.name,
                     calories = food.calories,
@@ -328,7 +378,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             val overLimit = fatGrams >= limit
             foodDao.insert(
                 FoodLogEntry(
-                    timestamp = System.currentTimeMillis(),
+                    timestamp = timestampForViewedDay(),
                     mealSlot = mealSlot,
                     name = name,
                     calories = calories,
@@ -341,6 +391,13 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                 )
             )
         }
+    }
+
+    /** Now if viewing today, otherwise midday of the day being viewed. */
+    private fun timestampForViewedDay(): Long {
+        val d = _viewDate.value
+        return if (d == LocalDate.now(zone)) System.currentTimeMillis()
+        else d.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
     }
 
     fun deleteEntry(entry: FoodLogEntry) {

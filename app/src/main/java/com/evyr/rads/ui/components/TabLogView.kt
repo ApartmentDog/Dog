@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -23,10 +24,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evyr.rads.data.local.FoodLogEntry
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import com.evyr.rads.ui.theme.*
 
 @Composable
 fun TabLogView(
+    viewDate: LocalDate,
+    isToday: Boolean,
+    onPreviousDay: () -> Unit,
+    onNextDay: () -> Unit,
+    onJumpToToday: () -> Unit,
     mealSlots: List<String>,
     activeMeal: String,
     dayEntries: List<FoodLogEntry>,
@@ -57,14 +65,49 @@ fun TabLogView(
         val dayCarbs = dayEntries.sumOf { it.carbGrams }
         val remaining = calorieTarget - dayCals
 
-        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                "TODAY",
+                "[<]",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                color = AmberDim,
+                modifier = Modifier
+                    .clickable { onPreviousDay() }
+                    .padding(end = 8.dp, top = 2.dp, bottom = 2.dp)
+            )
+            Text(
+                if (isToday) "TODAY"
+                else viewDate.format(DateTimeFormatter.ofPattern("EEE d MMM"))
+                    .uppercase(),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 9.sp,
-                color = AmberFaint,
-                modifier = Modifier.weight(1f)
+                fontWeight = if (isToday) FontWeight.Normal else FontWeight.Bold,
+                color = if (isToday) AmberFaint else AmberBright
             )
+            Text(
+                "[>]",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                color = if (isToday) Color(0x33FFB000) else AmberDim,
+                modifier = Modifier
+                    .clickable(enabled = !isToday) { onNextDay() }
+                    .padding(start = 8.dp, top = 2.dp, bottom = 2.dp)
+            )
+            if (!isToday) {
+                Text(
+                    "[TODAY]",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    color = AmberBright,
+                    modifier = Modifier
+                        .clickable { onJumpToToday() }
+                        .padding(start = 10.dp)
+                )
+            }
+            Spacer(Modifier.weight(1f))
             Text(
                 if (remaining >= 0) "$remaining LEFT" else "${-remaining} OVER",
                 fontFamily = FontFamily.Monospace,

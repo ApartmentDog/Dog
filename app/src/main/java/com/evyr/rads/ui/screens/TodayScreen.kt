@@ -17,7 +17,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -47,6 +51,18 @@ fun TodayScreen() {
     val searchMessage by vm.searchMessage.collectAsState()
     val pendingPortion by vm.pendingPortion.collectAsState()
     val portionOptions by vm.portionOptions.collectAsState()
+    val viewDate by vm.viewDate.collectAsState()
+    val isToday by vm.isViewingToday.collectAsState()
+
+    // Crossing midnight while the app sits in the background must roll the day.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.refreshDate()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val healthManager = remember { HealthConnectManager(context) }
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -157,6 +173,11 @@ fun TodayScreen() {
 
             when (activeTab) {
                 "LOG" -> TabLogView(
+                    viewDate = viewDate,
+                    isToday = isToday,
+                    onPreviousDay = { vm.previousDay() },
+                    onNextDay = { vm.nextDay() },
+                    onJumpToToday = { vm.jumpToToday() },
                     mealSlots = MEAL_SLOTS,
                     activeMeal = activeMeal,
                     dayEntries = entries,
@@ -171,6 +192,7 @@ fun TodayScreen() {
                 )
                 "STATS" -> TabStatsView(
                     scrollState = statsScroll,
+                    isToday = isToday,
                     entries = entries,
                     profile = profile,
                     health = health,

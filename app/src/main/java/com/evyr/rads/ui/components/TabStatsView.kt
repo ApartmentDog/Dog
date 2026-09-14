@@ -23,6 +23,7 @@ import com.evyr.rads.ui.theme.*
 @Composable
 fun TabStatsView(
     scrollState: ScrollState,
+    isToday: Boolean,
     entries: List<FoodLogEntry>,
     profile: UserProfile?,
     health: HealthSnapshot?,
@@ -35,7 +36,7 @@ fun TabStatsView(
         val totalProtein = entries.sumOf { it.proteinGrams }
         val totalCarbs = entries.sumOf { it.carbGrams }
 
-        SectionLabel("TODAY / INTAKE")
+        SectionLabel(if (isToday) "TODAY / INTAKE" else "SELECTED DAY / INTAKE")
         BarMeter("CALORIES", totalCals.toDouble(), target.toDouble(), "")
         StatRow("PROTEIN", "${trim(totalProtein)} g")
         StatRow("CARBS", "${trim(totalCarbs)} g")
