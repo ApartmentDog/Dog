@@ -176,7 +176,7 @@ private fun ResultRow(food: ScannedFood, onClick: () -> Unit) {
                 it,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 8.sp,
-                color = AmberFaint,
+                color = if (food.basisGrams != null) AmberWarn else AmberFaint,
                 modifier = Modifier.padding(start = 12.dp)
             )
         }
@@ -190,8 +190,19 @@ fun QuantityDialog(
     onDismiss: () -> Unit,
     onConfirm: (ScannedFood) -> Unit
 ) {
-    var qty by remember { mutableStateOf("1") }
-    val multiplier = qty.toDoubleOrNull() ?: 1.0
+    // When the source gave no serving size, the numbers are per 100 g and the
+    // honest question is "how many grams", not "how many servings".
+    val gramsMode = food.basisGrams != null
+    val basis = food.basisGrams ?: 1.0
+
+    var amount by remember { mutableStateOf(if (gramsMode) "100" else "1") }
+    val entered = amount.toDoubleOrNull() ?: if (gramsMode) basis else 1.0
+    val multiplier = if (gramsMode) entered / basis else entered
+
+    val presets = if (gramsMode)
+        listOf("50", "100", "150", "200", "250")
+    else
+        listOf("0.5", "1", "1.5", "2", "3")
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -224,19 +235,29 @@ fun QuantityDialog(
                 )
             }
 
+            if (gramsMode) {
+                Text(
+                    "!! NO SERVING SIZE PUBLISHED — ENTER WEIGHT",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AmberWarn,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+
             Spacer(Modifier.height(12.dp))
 
-            // Quick picks — faster than typing for the common cases.
             Text(
-                "SERVINGS",
+                if (gramsMode) "GRAMS" else "SERVINGS",
                 fontFamily = FontFamily.Monospace,
                 fontSize = 9.sp,
                 color = AmberDim
             )
             Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
-                listOf("0.5", "1", "1.5", "2", "3").forEach { preset ->
-                    val isSel = qty.trim() == preset ||
-                        (preset == "1" && qty.trim() == "1.0")
+                presets.forEach { preset ->
+                    val isSel = amount.trim() == preset ||
+                        (preset == "1" && amount.trim() == "1.0")
                     Text(
                         text = preset,
                         fontFamily = FontFamily.Monospace,
@@ -244,11 +265,11 @@ fun QuantityDialog(
                         fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSel) AmberBright else AmberFaint,
                         modifier = Modifier
-                            .clickable { qty = preset }
+                            .clickable { amount = preset }
                             .background(if (isSel) RowHighlight else ScreenInk)
-                            .padding(horizontal = 12.dp, vertical = 7.dp)
+                            .padding(horizontal = 10.dp, vertical = 7.dp)
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(5.dp))
                 }
             }
 
@@ -258,11 +279,11 @@ fun QuantityDialog(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 10.sp,
                     color = AmberDim,
-                    modifier = Modifier.width(90.dp).padding(top = 6.dp)
+                    modifier = Modifier.width(84.dp).padding(top = 6.dp)
                 )
                 BasicTextField(
-                    value = qty,
-                    onValueChange = { qty = it },
+                    value = amount,
+                    onValueChange = { amount = it },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     textStyle = TextStyle(
@@ -311,7 +332,11 @@ fun QuantityDialog(
                                     proteinGrams = round1(food.proteinGrams * multiplier),
                                     carbGrams = round1(food.carbGrams * multiplier),
                                     saturatedFatGrams = food.saturatedFatGrams
-                                        ?.let { round1(it * multiplier) }
+                                        ?.let { round1(it * multiplier) },
+                                    servingNote = if (gramsMode)
+                                        "${entered.toInt()} g"
+                                    else food.servingNote,
+                                    basisGrams = null
                                 )
                             )
                         }

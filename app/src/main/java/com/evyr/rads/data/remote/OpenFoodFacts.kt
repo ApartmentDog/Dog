@@ -95,6 +95,7 @@ object OpenFoodFacts {
                         saturatedFatGrams = round1(value("saturated-fat")).takeIf { it > 0 },
                         servingNote = note,
                         barcode = barcode,
+                        basisGrams = if (useServing) null else 100.0,
                         source = "barcode"
                     )
                 )
@@ -168,8 +169,9 @@ object OpenFoodFacts {
                                     scalable && servingText.isNotBlank() ->
                                         "Per serving ($servingText)."
                                     scalable -> "Per serving."
-                                    else -> "Per 100 g — set quantity for your portion."
+                                    else -> "Values are per 100 g."
                                 },
+                                basisGrams = if (scalable) null else 100.0,
                                 source = "off"
                             )
                         )

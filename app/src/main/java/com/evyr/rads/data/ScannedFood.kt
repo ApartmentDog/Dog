@@ -10,6 +10,12 @@ data class ScannedFood(
     val saturatedFatGrams: Double? = null,
     val servingNote: String? = null,
     val barcode: String? = null,
+    /**
+     * Set when the numbers are per-100g rather than per-serving, because the
+     * source published no serving size. The portion step then asks for grams
+     * instead of servings, so a 170 g biscuit isn't logged as 100 g.
+     */
+    val basisGrams: Double? = null,
     val source: String,
     val confidence: String? = null
 )
