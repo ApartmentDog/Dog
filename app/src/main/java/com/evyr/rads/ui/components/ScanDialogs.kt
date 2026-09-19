@@ -51,9 +51,8 @@ fun ScanSourceDialog(
                 .padding(18.dp)
         ) {
             Text(
-                "> IDENTIFY ITEM / ${mealSlot.uppercase()}",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "IDENTIFY ITEM / ${mealSlot.uppercase()}",
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = Amber
             )
@@ -80,9 +79,8 @@ fun ScanSourceDialog(
 
             Spacer(Modifier.height(10.dp))
             Text(
-                "[CANCEL]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "CANCEL",
+                fontSize = 22.sp,
                 color = AmberDim,
                 modifier = Modifier.clickable { onDismiss() }.padding(6.dp)
             )
@@ -104,16 +102,14 @@ private fun Option(
             .padding(vertical = 8.dp)
     ) {
         Text(
-            "> $title",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
+            "$title",
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = if (enabled) AmberBright else AmberFaint
         )
         Text(
             subtitle,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
+            fontSize = 13.sp,
             color = AmberFaint,
             modifier = Modifier.padding(start = 12.dp, top = 2.dp)
         )
@@ -135,9 +131,8 @@ fun ScanResultPicker(
                 .padding(18.dp)
         ) {
             Text(
-                "> ${foods.size} ITEMS DETECTED",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "${foods.size} ITEMS DETECTED",
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = Amber
             )
@@ -152,16 +147,14 @@ fun ScanResultPicker(
                 ) {
                     Column(Modifier.fillMaxWidth()) {
                         Text(
-                            "> ${f.name}",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
+                            "${f.name}",
+                            fontSize = 22.sp,
                             color = AmberBright
                         )
                         Text(
                             "${f.calories} kcal / ${f.fatGrams}g fat" +
                                 (f.confidence?.let { "  [$it]" } ?: ""),
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 9.sp,
+                            fontSize = 13.sp,
                             color = AmberFaint,
                             modifier = Modifier.padding(start = 12.dp)
                         )
@@ -172,9 +165,8 @@ fun ScanResultPicker(
 
             Spacer(Modifier.height(10.dp))
             Text(
-                "[CANCEL]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "CANCEL",
+                fontSize = 22.sp,
                 color = AmberDim,
                 modifier = Modifier.clickable { onDismiss() }.padding(6.dp)
             )
@@ -193,15 +185,13 @@ fun ScanStatusDialog(message: String, onDismiss: () -> Unit) {
         ) {
             Text(
                 message,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 22.sp,
                 color = Amber
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                "[CLOSE]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "CLOSE",
+                fontSize = 22.sp,
                 color = AmberDim,
                 modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
             )
@@ -227,16 +217,14 @@ fun BarcodeEntryDialog(
                 .padding(18.dp)
         ) {
             Text(
-                "> ENTER BARCODE",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "ENTER BARCODE",
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = Amber
             )
             Text(
                 "The digits printed under the bars. UPC-A is 12, EAN-13 is 13.",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 8.sp,
+                fontSize = 12.sp,
                 color = AmberFaint,
                 modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
             )
@@ -250,8 +238,7 @@ fun BarcodeEntryDialog(
                     imeAction = ImeAction.Done
                 ),
                 textStyle = TextStyle(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 18.sp,
+                    fontSize = 22.sp,
                     letterSpacing = 2.sp,
                     color = Amber
                 ),
@@ -264,8 +251,7 @@ fun BarcodeEntryDialog(
 
             Text(
                 "${code.length} DIGITS",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 8.sp,
+                fontSize = 12.sp,
                 color = if (valid) AmberBright else AmberFaint,
                 modifier = Modifier.padding(top = 4.dp)
             )
@@ -273,17 +259,15 @@ fun BarcodeEntryDialog(
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth()) {
                 Text(
-                    "[CANCEL]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    "CANCEL",
+                    fontSize = 22.sp,
                     color = AmberDim,
                     modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
                 )
                 Spacer(Modifier.width(20.dp))
                 Text(
-                    "[LOOK UP]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    "LOOK UP",
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (valid) AmberBright else AmberFaint,
                     modifier = Modifier

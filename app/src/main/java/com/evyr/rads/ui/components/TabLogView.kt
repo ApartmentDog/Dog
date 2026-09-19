@@ -71,8 +71,7 @@ fun TabLogView(
         ) {
             Text(
                 "[<]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 22.sp,
                 color = AmberDim,
                 modifier = Modifier
                     .clickable { onPreviousDay() }
@@ -82,15 +81,13 @@ fun TabLogView(
                 if (isToday) "TODAY"
                 else viewDate.format(DateTimeFormatter.ofPattern("EEE d MMM"))
                     .uppercase(),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
+                fontSize = 13.sp,
                 fontWeight = if (isToday) FontWeight.Normal else FontWeight.Bold,
                 color = if (isToday) AmberFaint else AmberBright
             )
             Text(
                 "[>]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 22.sp,
                 color = if (isToday) Color(0x33FFB000) else AmberDim,
                 modifier = Modifier
                     .clickable(enabled = !isToday) { onNextDay() }
@@ -98,9 +95,8 @@ fun TabLogView(
             )
             if (!isToday) {
                 Text(
-                    "[TODAY]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
+                    "TODAY",
+                    fontSize = 13.sp,
                     color = AmberBright,
                     modifier = Modifier
                         .clickable { onJumpToToday() }
@@ -110,8 +106,7 @@ fun TabLogView(
             Spacer(Modifier.weight(1f))
             Text(
                 if (remaining >= 0) "$remaining LEFT" else "${-remaining} OVER",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
+                fontSize = 13.sp,
                 color = if (remaining >= 0) AmberFaint else AmberWarn
             )
         }
@@ -119,15 +114,13 @@ fun TabLogView(
         Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
             Text(
                 "$dayCals",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 20.sp,
+                fontSize = 34.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (remaining >= 0) AmberBright else AmberWarn
             )
             Text(
                 " / $calorieTarget kcal",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 22.sp,
                 color = AmberDim,
                 modifier = Modifier.padding(top = 7.dp)
             )
@@ -166,8 +159,7 @@ fun TabLogView(
                 val isSel = slot == activeMeal
                 Text(
                     text = slot.uppercase(),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
+                    fontSize = 13.sp,
                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                     color = if (isSel) Amber else AmberFaint,
                     modifier = Modifier
@@ -185,16 +177,14 @@ fun TabLogView(
         Row(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
             Text(
                 "$mealCals kcal",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Amber,
                 modifier = Modifier.weight(1f)
             )
             Text(
                 "FAT ${trim(mealFat)}g / ${trim(fatWarnGrams)}g",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (mealFat >= fatWarnGrams) AmberWarn else Amber
             )
@@ -202,8 +192,7 @@ fun TabLogView(
         if (mealFat >= fatWarnGrams && entries.isNotEmpty()) {
             Text(
                 "!! MEAL FAT LIMIT EXCEEDED",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = AmberWarn,
                 modifier = Modifier.padding(bottom = 4.dp)
@@ -213,9 +202,8 @@ fun TabLogView(
 
         if (entries.isEmpty()) {
             Text(
-                "> NO ENTRIES FOR ${activeMeal.uppercase()}\n> PRESS [LOG] TO ADD",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "NO ENTRIES FOR ${activeMeal.uppercase()}\n> PRESS [LOG] TO ADD",
+                fontSize = 22.sp,
                 color = AmberDim,
                 modifier = Modifier.padding(vertical = 14.dp)
             )
@@ -232,16 +220,14 @@ fun TabLogView(
                     ) {
                         Row(Modifier.fillMaxWidth()) {
                             Text(
-                                if (isSel) "> ${entry.name}" else "  ${entry.name}",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
+                                if (isSel) "${entry.name}" else "  ${entry.name}",
+                                fontSize = 22.sp,
                                 color = if (entry.flagged) AmberWarn else if (isSel) AmberBright else AmberDim,
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
                                 "${entry.calories}",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
+                                fontSize = 22.sp,
                                 color = if (isSel) AmberBright else AmberDim
                             )
                         }
@@ -252,7 +238,7 @@ fun TabLogView(
                             StatRow("CARBS", "${trim(entry.carbGrams)} g")
                             StatRow("SOURCE", entry.source.uppercase())
                             entry.flagReason?.let { StatRow("FLAG", it, warn = true) }
-                            TerminalAction("[DELETE ENTRY]", { onDeleteEntry(entry) }, warn = true)
+                            TerminalAction("DELETE ENTRY", { onDeleteEntry(entry) }, warn = true)
                         }
                     }
                     Hairline()
@@ -267,14 +253,12 @@ private fun DayMacro(label: String, value: String, modifier: Modifier = Modifier
     Column(modifier) {
         Text(
             label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
+            fontSize = 12.sp,
             color = AmberFaint
         )
         Text(
             value,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = Amber
         )

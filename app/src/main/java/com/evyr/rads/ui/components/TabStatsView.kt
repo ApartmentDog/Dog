@@ -49,8 +49,7 @@ fun TabStatsView(
         SectionLabel("FAT BY MEAL")
         Text(
             "Fat is assessed per meal, not per day.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
+            fontSize = 12.sp,
             color = AmberFaint,
             modifier = Modifier.padding(bottom = 4.dp)
         )

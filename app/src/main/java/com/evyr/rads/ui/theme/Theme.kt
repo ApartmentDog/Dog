@@ -1,35 +1,33 @@
 package com.evyr.rads.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.Color
 
-private val RadsColorScheme = darkColorScheme(
+private val RadsColorScheme = lightColorScheme(
     primary = Amber,
-    onPrimary = ScreenBlack,
+    onPrimary = Color.White,
+    primaryContainer = RowHighlight,
+    onPrimaryContainer = AmberBright,
     secondary = AmberDim,
-    onSecondary = ScreenBlack,
-    background = ScreenBlack,
-    onBackground = Amber,
-    surface = ScreenInk,
-    onSurface = Amber,
+    onSecondary = Color.White,
+    background = ScreenBlackDeep,
+    onBackground = TextPrimary,
+    surface = ScreenBlack,
+    onSurface = TextPrimary,
+    surfaceVariant = ScreenInk,
+    onSurfaceVariant = TextSecondary,
     error = AmberWarn,
-    onError = ScreenBlack,
-    outline = AmberFaint,
+    onError = Color.White,
+    outline = AmberHairline,
+    outlineVariant = AmberHairline,
 )
 
-// Monospace everywhere — this is a terminal, not an app.
 @Composable
 fun RadsTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = RadsColorScheme,
-        typography = MaterialTheme.typography.copy(
-            bodyLarge = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-            bodyMedium = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-            titleLarge = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Monospace),
-            headlineMedium = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Monospace),
-        ),
         content = content
     )
 }

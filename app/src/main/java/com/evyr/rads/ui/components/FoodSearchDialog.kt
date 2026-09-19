@@ -59,9 +59,8 @@ fun FoodSearchDialog(
                 .heightIn(max = 580.dp)
         ) {
             Text(
-                "> FOOD SEARCH / ${mealSlot.uppercase()}",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "FOOD SEARCH / ${mealSlot.uppercase()}",
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = Amber
             )
@@ -74,8 +73,7 @@ fun FoodSearchDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     textStyle = TextStyle(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
+                        fontSize = 16.sp,
                         color = Amber
                     ),
                     cursorBrush = SolidColor(Amber),
@@ -86,9 +84,8 @@ fun FoodSearchDialog(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "[FIND]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    "FIND",
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = AmberBright,
                     modifier = Modifier
@@ -102,23 +99,20 @@ fun FoodSearchDialog(
 
             when {
                 searching -> Text(
-                    "> SEARCHING...",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    "SEARCHING...",
+                    fontSize = 22.sp,
                     color = AmberDim,
                     modifier = Modifier.padding(vertical = 16.dp)
                 )
                 message != null -> Text(
                     message,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp,
+                    fontSize = 22.sp,
                     color = AmberDim,
                     modifier = Modifier.padding(vertical = 16.dp)
                 )
                 results.isEmpty() -> Text(
-                    "> TYPE A FOOD AND PRESS [FIND]\n> e.g. \"grilled chicken breast\"",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp,
+                    "TYPE A FOOD AND PRESS [FIND]\n> e.g. \"grilled chicken breast\"",
+                    fontSize = 22.sp,
                     color = AmberFaint,
                     modifier = Modifier.padding(vertical = 16.dp)
                 )
@@ -133,17 +127,15 @@ fun FoodSearchDialog(
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth()) {
                 Text(
-                    "[CANCEL]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    "CANCEL",
+                    fontSize = 22.sp,
                     color = AmberDim,
                     modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
                 )
                 Spacer(Modifier.width(18.dp))
                 Text(
-                    "[MANUAL ENTRY]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    "MANUAL ENTRY",
+                    fontSize = 22.sp,
                     color = AmberDim,
                     modifier = Modifier.clickable { onManual() }.padding(4.dp)
                 )
@@ -162,17 +154,15 @@ private fun ResultRow(food: ScannedFood, onClick: () -> Unit) {
     ) {
         Row(Modifier.fillMaxWidth()) {
             Text(
-                "> ${food.name}",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "${food.name}",
+                fontSize = 22.sp,
                 color = AmberBright,
                 modifier = Modifier.weight(1f)
             )
             if (food.source == "vision") {
                 Text(
                     "EST",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 8.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = AmberWarn
                 )
@@ -180,16 +170,14 @@ private fun ResultRow(food: ScannedFood, onClick: () -> Unit) {
         }
         Text(
             "${food.calories} kcal  F ${food.fatGrams}g  P ${food.proteinGrams}g  C ${food.carbGrams}g",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
+            fontSize = 13.sp,
             color = AmberDim,
             modifier = Modifier.padding(start = 12.dp, top = 2.dp)
         )
         food.servingNote?.let {
             Text(
                 it,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 8.sp,
+                fontSize = 12.sp,
                 color = if (food.basisGrams != null) AmberWarn else AmberFaint,
                 modifier = Modifier.padding(start = 12.dp)
             )
@@ -235,24 +223,21 @@ fun QuantityDialog(
                 .padding(18.dp)
         ) {
             Text(
-                "> PORTION",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "PORTION",
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = Amber
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 food.name,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 22.sp,
                 color = AmberBright
             )
             food.servingNote?.let {
                 Text(
                     it,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
+                    fontSize = 13.sp,
                     color = AmberFaint,
                     modifier = Modifier.padding(top = 2.dp)
                 )
@@ -261,8 +246,7 @@ fun QuantityDialog(
             if (gramsMode && portionOptions.isEmpty()) {
                 Text(
                     "!! NO SERVING SIZE PUBLISHED — ENTER WEIGHT",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = AmberWarn,
                     modifier = Modifier.padding(top = 6.dp)
@@ -274,17 +258,15 @@ fun QuantityDialog(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "PORTION",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
+                    fontSize = 13.sp,
                     color = AmberDim
                 )
                 portionOptions.forEach { option ->
                     val isSel = chosenPortion?.label == option.label
                     Text(
-                        text = (if (isSel) "> " else "  ") +
+                        text = (if (isSel) "" else "  ") +
                             "${option.label}  (${option.gramWeight.toInt()} g)",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
+                        fontSize = 22.sp,
                         fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSel) AmberBright else AmberFaint,
                         modifier = Modifier
@@ -307,8 +289,7 @@ fun QuantityDialog(
                     gramsMode -> "GRAMS"
                     else -> "SERVINGS"
                 },
-                fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
+                fontSize = 13.sp,
                 color = AmberDim
             )
             Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
@@ -317,8 +298,7 @@ fun QuantityDialog(
                         (preset == "1" && amount.trim() == "1.0")
                     Text(
                         text = preset,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
+                        fontSize = 16.sp,
                         fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSel) AmberBright else AmberFaint,
                         modifier = Modifier
@@ -333,8 +313,7 @@ fun QuantityDialog(
             Row(Modifier.fillMaxWidth()) {
                 Text(
                     "OR TYPE",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp,
+                    fontSize = 22.sp,
                     color = AmberDim,
                     modifier = Modifier.width(84.dp).padding(top = 6.dp)
                 )
@@ -344,8 +323,7 @@ fun QuantityDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     textStyle = TextStyle(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
+                        fontSize = 16.sp,
                         color = Amber
                     ),
                     cursorBrush = SolidColor(Amber),
@@ -367,17 +345,15 @@ fun QuantityDialog(
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth()) {
                 Text(
-                    "[BACK]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    "BACK",
+                    fontSize = 22.sp,
                     color = AmberDim,
                     modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
                 )
                 Spacer(Modifier.width(20.dp))
                 Text(
-                    "[ASSESS]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    "ASSESS",
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = AmberBright,
                     modifier = Modifier

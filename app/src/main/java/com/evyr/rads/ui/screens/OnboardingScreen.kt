@@ -74,15 +74,13 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
         ) {
             Text(
                 "R.A.D.S.",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 20.sp,
+                fontSize = 34.sp,
                 fontWeight = FontWeight.Bold,
                 color = Amber
             )
             Text(
                 "RATION ASSESSMENT & DIET SYSTEM",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
+                fontSize = 13.sp,
                 color = AmberDim
             )
             Spacer(Modifier.height(4.dp))
@@ -90,9 +88,8 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
             Spacer(Modifier.height(12.dp))
 
             Text(
-                "> SETUP [${step + 1}/${lastStep + 1}]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
+                "SETUP [${step + 1}/${lastStep + 1}]",
+                fontSize = 22.sp,
                 color = AmberFaint
             )
             Spacer(Modifier.height(10.dp))
@@ -173,18 +170,16 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
             Row(Modifier.fillMaxWidth()) {
                 if (step > 0) {
                     Text(
-                        "[BACK]",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
+                        "BACK",
+                        fontSize = 16.sp,
                         color = AmberDim,
                         modifier = Modifier.clickable { step-- }.padding(8.dp)
                     )
                     Spacer(Modifier.width(16.dp))
                 }
                 Text(
-                    if (step < lastStep) "[NEXT]" else "[INITIALIZE]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
+                    if (step < lastStep) "NEXT" else "INITIALIZE",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = AmberBright,
                     modifier = Modifier
@@ -233,8 +228,7 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
 private fun Prompt(text: String) {
     Text(
         text,
-        fontFamily = FontFamily.Monospace,
-        fontSize = 13.sp,
+        fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
         color = Amber,
         modifier = Modifier.padding(bottom = 8.dp)
@@ -245,8 +239,7 @@ private fun Prompt(text: String) {
 private fun Note(text: String) {
     Text(
         text,
-        fontFamily = FontFamily.Monospace,
-        fontSize = 9.sp,
+        fontSize = 13.sp,
         color = AmberFaint,
         modifier = Modifier.padding(top = 4.dp)
     )
@@ -262,8 +255,7 @@ private fun Field(
     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Text(
             label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 10.sp,
+            fontSize = 22.sp,
             color = AmberDim,
             modifier = Modifier.width(92.dp).padding(top = 5.dp)
         )
@@ -275,8 +267,7 @@ private fun Field(
                 KeyboardOptions(keyboardType = KeyboardType.Number)
             } else KeyboardOptions.Default,
             textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
+                fontSize = 16.sp,
                 color = Amber
             ),
             cursorBrush = SolidColor(Amber),
@@ -296,14 +287,13 @@ private fun Choices(
     onSelect: (String) -> Unit
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-        Text(label, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = AmberDim)
+        Text(label, fontSize = 22.sp, color = AmberDim)
         Spacer(Modifier.height(3.dp))
         options.forEach { opt ->
             val isSel = opt == selected
             Text(
-                text = (if (isSel) "> " else "  ") + opt.replace('_', ' ').uppercase(),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                text = (if (isSel) "" else "  ") + opt.replace('_', ' ').uppercase(),
+                fontSize = 22.sp,
                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                 color = if (isSel) AmberBright else AmberFaint,
                 modifier = Modifier

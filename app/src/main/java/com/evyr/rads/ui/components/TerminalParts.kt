@@ -35,8 +35,7 @@ fun Hairline(modifier: Modifier = Modifier) {
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        fontFamily = FontFamily.Monospace,
-        fontSize = 9.sp,
+        fontSize = 13.sp,
         color = AmberFaint,
         modifier = modifier.padding(top = 10.dp, bottom = 4.dp)
     )
@@ -52,15 +51,13 @@ fun StatRow(
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
         Text(
             text = label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 10.sp,
+            fontSize = 22.sp,
             color = AmberDim,
             modifier = Modifier.width(96.dp)
         )
         Text(
             text = value,
-            fontFamily = FontFamily.Monospace,
-            fontSize = if (emphasize) 13.sp else 10.sp,
+            fontSize = if (emphasize) 16.sp else 22.sp,
             fontWeight = if (emphasize) FontWeight.Bold else FontWeight.Normal,
             color = if (warn) AmberWarn else Amber
         )
@@ -82,8 +79,7 @@ fun BarMeter(
     ) {
         Text(
             label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 10.sp,
+            fontSize = 22.sp,
             color = AmberDim,
             modifier = Modifier.width(70.dp)
         )
@@ -103,44 +99,18 @@ fun BarMeter(
         Spacer(Modifier.width(8.dp))
         Text(
             "${current.toInt()}/${target.toInt()}$unit",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
+            fontSize = 13.sp,
             color = if (warn) AmberWarn else Amber
         )
     }
 }
 
-@Composable
-fun TerminalTabBar(
-    tabs: List<String>,
-    selected: String,
-    onSelect: (String) -> Unit
-) {
-    Row(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
-        tabs.forEach { tab ->
-            val isSel = tab == selected
-            Text(
-                text = tab,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSel) AmberBright else AmberFaint,
-                modifier = Modifier
-                    .clickable { onSelect(tab) }
-                    .background(if (isSel) RowHighlight else Color.Transparent)
-                    .padding(horizontal = 7.dp, vertical = 3.dp)
-            )
-            Spacer(Modifier.width(4.dp))
-        }
-    }
-}
 
 @Composable
 fun TerminalAction(text: String, onClick: () -> Unit, warn: Boolean = false) {
     Text(
         text = text,
-        fontFamily = FontFamily.Monospace,
-        fontSize = 11.sp,
+        fontSize = 22.sp,
         color = if (warn) AmberWarn else AmberBright,
         modifier = Modifier
             .clickable(onClick = onClick)

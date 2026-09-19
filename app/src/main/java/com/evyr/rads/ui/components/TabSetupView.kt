@@ -121,8 +121,7 @@ fun TabSetupView(
             if (p.rateLbsPerWeek > 2.0) {
                 Text(
                     "Above 2 lb/week is rarely advisable.",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 8.sp,
+                    fontSize = 12.sp,
                     color = AmberWarn,
                     modifier = Modifier.padding(top = 2.dp)
                 )
@@ -139,8 +138,7 @@ fun TabSetupView(
         SectionLabel("FAT LIMIT (PER MEAL)")
         Text(
             "Applied to each meal separately. Not a daily budget.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
+            fontSize = 12.sp,
             color = AmberFaint,
             modifier = Modifier.padding(bottom = 4.dp)
         )
@@ -163,8 +161,7 @@ fun TabSetupView(
         }
         Text(
             "Cold-boot animation on launch. Takes about two seconds and can be tapped through.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
+            fontSize = 12.sp,
             color = AmberFaint,
             modifier = Modifier.padding(bottom = 4.dp)
         )
@@ -174,8 +171,7 @@ fun TabSetupView(
         SectionLabel("FOOD DATABASE")
         Text(
             "USDA FoodData Central powers search. Blank uses a shared demo key that rate limits quickly — a free key from fdc.nal.usda.gov fixes that.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
+            fontSize = 12.sp,
             color = AmberFaint,
             modifier = Modifier.padding(bottom = 4.dp)
         )
@@ -192,8 +188,7 @@ fun TabSetupView(
         SectionLabel("AI FOOD DETECTION")
         Text(
             "Optional. Barcode scanning works without this. A Gemini API key enables photo estimates for plates and menus.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
+            fontSize = 12.sp,
             color = AmberFaint,
             modifier = Modifier.padding(bottom = 4.dp)
         )
@@ -241,8 +236,7 @@ private fun EditField(label: String, value: String, onChange: (String) -> Unit) 
             onValueChange = onChange,
             singleLine = true,
             textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 22.sp,
                 color = Amber
             ),
             cursorBrush = SolidColor(Amber),
@@ -263,8 +257,7 @@ private fun EditNumber(label: String, value: String, onChange: (String) -> Unit)
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 22.sp,
                 color = Amber
             ),
             cursorBrush = SolidColor(Amber),
@@ -281,8 +274,7 @@ private fun FieldShell(label: String, content: @Composable () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(
             label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
+            fontSize = 13.sp,
             color = AmberDim,
             modifier = Modifier.width(88.dp).padding(top = 5.dp)
         )
@@ -298,14 +290,13 @@ private fun ChoiceRow(
     onSelect: (String) -> Unit
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(label, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = AmberDim)
+        Text(label, fontSize = 13.sp, color = AmberDim)
         Row(Modifier.fillMaxWidth().padding(top = 3.dp)) {
             options.forEach { opt ->
                 val isSel = opt == selected
                 Text(
                     text = opt.replace('_', ' ').uppercase(),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
+                    fontSize = 13.sp,
                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                     color = if (isSel) AmberBright else AmberFaint,
                     modifier = Modifier
