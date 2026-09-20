@@ -27,7 +27,6 @@ import com.evyr.rads.ui.theme.AmberBright
 import com.evyr.rads.ui.theme.AmberDim
 import com.evyr.rads.ui.theme.AmberFaint
 import com.evyr.rads.ui.theme.ScreenBlack
-import com.evyr.rads.ui.theme.ScreenBlackDeep
 import kotlinx.coroutines.delay
 
 private data class BootLine(val text: String, val delayMs: Long, val bright: Boolean = false)
@@ -41,7 +40,7 @@ private val SEQUENCE = listOf(
     BootLine("HEALTH LINK ........ POLLING", 200),
     BootLine("OPERATOR PROFILE ... LOADED", 200),
     BootLine("", 80),
-    BootLine("SYSTEM READY", 260, bright = true)
+    BootLine("> SYSTEM READY", 260, bright = true)
 )
 
 /**
@@ -66,7 +65,7 @@ fun BootScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(ScreenBlackDeep)
+            .background(ScreenBlack)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -85,7 +84,8 @@ fun BootScreen(onFinished: () -> Unit) {
                 } else {
                     Text(
                         text = line.text,
-                        fontSize = if (line.bright) 22.sp else 22.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = if (line.bright) 14.sp else 11.sp,
                         fontWeight = if (line.bright) FontWeight.Bold else FontWeight.Normal,
                         color = if (line.bright) AmberBright else Amber,
                         modifier = Modifier.padding(vertical = 2.dp)
@@ -96,7 +96,8 @@ fun BootScreen(onFinished: () -> Unit) {
             if (visibleCount in 1 until SEQUENCE.size) {
                 Text(
                     "_",
-                    fontSize = 22.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
                     color = AmberDim
                 )
             }
@@ -104,7 +105,8 @@ fun BootScreen(onFinished: () -> Unit) {
 
         Text(
             "TAP TO SKIP",
-            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 8.sp,
             color = AmberFaint,
             modifier = Modifier
                 .align(androidx.compose.ui.Alignment.BottomCenter)

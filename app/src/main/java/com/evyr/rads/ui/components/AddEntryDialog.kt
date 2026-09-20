@@ -51,8 +51,9 @@ fun AddEntryDialog(
                 .padding(16.dp)
         ) {
             Text(
-                "NEW ENTRY / ${mealSlot.uppercase()}",
-                fontSize = 16.sp,
+                "> NEW ENTRY / ${mealSlot.uppercase()}",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
                 color = Amber
             )
             Spacer(Modifier.height(12.dp))
@@ -69,7 +70,8 @@ fun AddEntryDialog(
                 Text(
                     "= ${((calories.toIntOrNull() ?: 0) * mult).toInt()} kcal, " +
                         "${entryFmt((fat.toDoubleOrNull() ?: 0.0) * mult)}g fat",
-                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
                     color = AmberFaint,
                     modifier = Modifier.padding(start = 90.dp, top = 2.dp)
                 )
@@ -78,15 +80,17 @@ fun AddEntryDialog(
             Spacer(Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    "CANCEL",
-                    fontSize = 22.sp,
+                    "[CANCEL]",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
                     color = AmberDim,
                     modifier = Modifier.clickable { onDismiss() }
                 )
                 Spacer(Modifier.width(24.dp))
                 Text(
-                    "SAVE",
-                    fontSize = 22.sp,
+                    "[SAVE]",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
                     color = Amber,
                     modifier = Modifier.clickable {
                         if (name.isNotBlank()) {
@@ -117,7 +121,8 @@ private fun TerminalField(
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(
             label,
-            fontSize = 22.sp,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 10.sp,
             color = AmberDim,
             modifier = Modifier.width(90.dp)
         )
@@ -126,7 +131,8 @@ private fun TerminalField(
             onValueChange = onValueChange,
             singleLine = true,
             textStyle = TextStyle(
-                fontSize = 22.sp,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
                 color = Amber
             ),
             cursorBrush = SolidColor(Amber),

@@ -74,21 +74,21 @@ fun TabSyncView(
 
         when (availability) {
             HealthConnectManager.Availability.NOT_INSTALLED -> {
-                TerminalAction("INSTALL HEALTH CONNECT", onInstall)
+                TerminalAction("[INSTALL HEALTH CONNECT]", onInstall)
                 Spacer(Modifier.height(4.dp))
                 Note(
                     "Health Connect isn't on this device. Install it, open Samsung Health once so it writes data, then come back and grant access."
                 )
             }
             HealthConnectManager.Availability.UPDATE_REQUIRED -> {
-                TerminalAction("UPDATE HEALTH CONNECT", onInstall)
+                TerminalAction("[UPDATE HEALTH CONNECT]", onInstall)
                 Spacer(Modifier.height(4.dp))
                 Note("Health Connect is installed but too old to talk to. Update it, then grant access.")
             }
             HealthConnectManager.Availability.READY -> {
-                TerminalAction("PULL NOW", onSync)
-                TerminalAction("GRANT ACCESS", onRequestPermission)
-                TerminalAction("OPEN HEALTH CONNECT SETTINGS", onOpenSettings)
+                TerminalAction("[PULL NOW]", onSync)
+                TerminalAction("[GRANT ACCESS]", onRequestPermission)
+                TerminalAction("[OPEN HEALTH CONNECT SETTINGS]", onOpenSettings)
                 Spacer(Modifier.height(6.dp))
                 Note(
                     if (status == TodayViewModel.SyncStatus.NO_PERMISSION)
@@ -107,7 +107,8 @@ fun TabSyncView(
 private fun Note(text: String) {
     Text(
         text,
-        fontSize = 13.sp,
+        fontFamily = FontFamily.Monospace,
+        fontSize = 9.sp,
         color = AmberFaint
     )
 }

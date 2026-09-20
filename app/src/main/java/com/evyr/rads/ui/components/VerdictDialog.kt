@@ -76,8 +76,9 @@ fun VerdictDialog(
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
-                "ASSESSMENT / ${mealSlot.uppercase()}",
-                fontSize = 22.sp,
+                "> ASSESSMENT / ${mealSlot.uppercase()}",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 10.sp,
                 color = AmberFaint
             )
             Spacer(Modifier.height(10.dp))
@@ -92,7 +93,8 @@ fun VerdictDialog(
             ) {
                 Text(
                     stampText,
-                    fontSize = 30.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = stampColor
                 )
@@ -100,7 +102,8 @@ fun VerdictDialog(
             Spacer(Modifier.height(6.dp))
             Text(
                 verdict.headline,
-                fontSize = 22.sp,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = stampColor
             )
@@ -109,7 +112,8 @@ fun VerdictDialog(
             verdict.reasons.forEach { r ->
                 Text(
                     "- $r",
-                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
                     color = AmberDim,
                     modifier = Modifier.padding(vertical = 1.dp)
                 )
@@ -119,7 +123,8 @@ fun VerdictDialog(
             Hairline()
             Text(
                 "ADJUST BEFORE LOGGING",
-                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 9.sp,
                 color = AmberFaint,
                 modifier = Modifier.padding(vertical = 6.dp)
             )
@@ -134,7 +139,8 @@ fun VerdictDialog(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "BARCODE $it",
-                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 8.sp,
                     color = AmberFaint
                 )
             }
@@ -142,15 +148,17 @@ fun VerdictDialog(
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth()) {
                 Text(
-                    "DISCARD",
-                    fontSize = 22.sp,
+                    "[DISCARD]",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
                     color = AmberDim,
                     modifier = Modifier.clickable { onDismiss() }.padding(6.dp)
                 )
                 Spacer(Modifier.width(20.dp))
                 Text(
-                    if (verdict.verdict == Verdict.OVER_LIMIT) "LOG ANYWAY" else "LOG IT",
-                    fontSize = 22.sp,
+                    if (verdict.verdict == Verdict.OVER_LIMIT) "[LOG ANYWAY]" else "[LOG IT]",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (verdict.verdict == Verdict.OVER_LIMIT) AmberWarn else AmberBright,
                     modifier = Modifier
@@ -182,7 +190,8 @@ private fun EditRow(
     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
         Text(
             label,
-            fontSize = 13.sp,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 9.sp,
             color = AmberDim,
             modifier = Modifier.width(80.dp).padding(top = 5.dp)
         )
@@ -194,7 +203,8 @@ private fun EditRow(
                 KeyboardOptions(keyboardType = KeyboardType.Number)
             else KeyboardOptions.Default,
             textStyle = TextStyle(
-                fontSize = 22.sp,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
                 color = Amber
             ),
             cursorBrush = SolidColor(Amber),

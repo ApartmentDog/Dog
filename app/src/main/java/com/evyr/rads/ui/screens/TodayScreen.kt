@@ -114,6 +114,18 @@ fun TodayScreen() {
     val syncScroll = rememberScrollState()
     val setupScroll = rememberScrollState()
 
+    // The wheel follows whichever tab is actually on screen.
+    val scrollProgress by remember {
+        derivedStateOf {
+            when (activeTab) {
+                "LOG" -> lazyProgress(listState)
+                "STATS" -> linearProgress(statsScroll)
+                "SYNC" -> linearProgress(syncScroll)
+                "SETUP" -> linearProgress(setupScroll)
+                else -> 0f
+            }
+        }
+    }
 
     val mealEntries = entries.filter { it.mealSlot == activeMeal }
     val selectedEntry = entries.firstOrNull { it.id == selectedId }
@@ -133,71 +145,85 @@ fun TodayScreen() {
             }
     }
 
-    val dayLabel = if (isToday) "Today"
-        else viewDate.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM"))
+    // Activity lamp: lit while anything is actually working.
+    val busy = searching ||
+        syncStatus == TodayViewModel.SyncStatus.SYNCING ||
+        scanState is TodayViewModel.ScanState.Working
 
-    AppShell(
-        title = when (activeTab) {
-            "LOG" -> "Food log"
-            "STATS" -> "Stats"
-            "SYNC" -> "Health sync"
-            else -> "Settings"
-        },
-        subtitle = if (activeTab == "LOG") dayLabel else null,
-        activeTab = activeTab,
-        onTabSelected = { activeTab = it },
-        onAdd = { showAddDialog = true },
-        onScan = { showScanPicker = true }
+    TerminalChrome(
+        scrollProgress = scrollProgress,
+        busy = busy,
+        buttons = listOf(
+            TerminalButtonSpec("LOG", selected = activeTab == "LOG") {
+                if (activeTab == "LOG") {
+                    vm.resetSearch()
+                    showSearch = true
+                } else activeTab = "LOG"
+            },
+            TerminalButtonSpec("SCAN", selected = false) {
+                activeTab = "LOG"
+                showScanPicker = true
+            },
+            TerminalButtonSpec("SYNC", selected = activeTab == "SYNC") {
+                activeTab = "SYNC"
+                vm.sync()
+            },
+        )
     ) {
-        when (activeTab) {
-            "LOG" -> TabLogView(
-                viewDate = viewDate,
-                isToday = isToday,
-                onPreviousDay = { vm.previousDay() },
-                onNextDay = { vm.nextDay() },
-                onJumpToToday = { vm.jumpToToday() },
-                mealSlots = MEAL_SLOTS,
-                activeMeal = activeMeal,
-                dayEntries = entries,
-                calorieTarget = profile?.calorieTarget() ?: DEFAULT_CALORIE_TARGET,
-                entries = mealEntries,
-                selectedEntry = selectedEntry,
-                fatWarnGrams = fatLimit,
-                listState = listState,
-                onSelectMeal = { activeMeal = it },
-                onSelectEntry = { vm.selectEntry(it.id) },
-                onDeleteEntry = { vm.deleteEntry(it) }
-            )
-            "STATS" -> TabStatsView(
-                scrollState = statsScroll,
-                isToday = isToday,
-                entries = entries,
-                profile = profile,
-                health = health,
-                mealSlots = MEAL_SLOTS
-            )
-            "SYNC" -> TabSyncView(
-                scrollState = syncScroll,
-                status = syncStatus,
-                availability = healthManager.availability(),
-                health = health,
-                imperial = profile?.useImperial ?: true,
-                onSync = { vm.sync() },
-                onRequestPermission = {
-                    permissionLauncher.launch(healthManager.permissions)
-                },
-                onOpenSettings = {
-                    runCatching { context.startActivity(healthManager.settingsIntent()) }
-                },
-                onInstall = {
-                    runCatching { context.startActivity(healthManager.installIntent()) }
-                }
-            )
-            "SETUP" -> TabSetupView(
-                scrollState = setupScroll,
-                profile = profile,
-                onUpdate = { vm.saveProfile(it) }
-            )
+        Column(Modifier.fillMaxWidth()) {
+            TerminalTabBar(TABS, activeTab) { activeTab = it }
+            Hairline()
+
+            when (activeTab) {
+                "LOG" -> TabLogView(
+                    viewDate = viewDate,
+                    isToday = isToday,
+                    onPreviousDay = { vm.previousDay() },
+                    onNextDay = { vm.nextDay() },
+                    onJumpToToday = { vm.jumpToToday() },
+                    mealSlots = MEAL_SLOTS,
+                    activeMeal = activeMeal,
+                    dayEntries = entries,
+                    calorieTarget = profile?.calorieTarget() ?: DEFAULT_CALORIE_TARGET,
+                    entries = mealEntries,
+                    selectedEntry = selectedEntry,
+                    fatWarnGrams = fatLimit,
+                    listState = listState,
+                    onSelectMeal = { activeMeal = it },
+                    onSelectEntry = { vm.selectEntry(it.id) },
+                    onDeleteEntry = { vm.deleteEntry(it) }
+                )
+                "STATS" -> TabStatsView(
+                    scrollState = statsScroll,
+                    isToday = isToday,
+                    entries = entries,
+                    profile = profile,
+                    health = health,
+                    mealSlots = MEAL_SLOTS
+                )
+                "SYNC" -> TabSyncView(
+                    scrollState = syncScroll,
+                    status = syncStatus,
+                    availability = healthManager.availability(),
+                    health = health,
+                    imperial = profile?.useImperial ?: true,
+                    onSync = { vm.sync() },
+                    onRequestPermission = {
+                        permissionLauncher.launch(healthManager.permissions)
+                    },
+                    onOpenSettings = {
+                        runCatching { context.startActivity(healthManager.settingsIntent()) }
+                    },
+                    onInstall = {
+                        runCatching { context.startActivity(healthManager.installIntent()) }
+                    }
+                )
+                "SETUP" -> TabSetupView(
+                    scrollState = setupScroll,
+                    profile = profile,
+                    onUpdate = { vm.saveProfile(it) }
+                )
+            }
         }
     }
 
@@ -300,4 +326,21 @@ private fun readBytes(context: Context, uri: android.net.Uri): ByteArray? =
     }.getOrNull()
 
 
+/** Smooth 0..1 position through a lazy list, including partial item offset. */
+private fun lazyProgress(state: LazyListState): Float {
+    val info = state.layoutInfo
+    val total = info.totalItemsCount
+    if (total <= 0) return 0f
+    val first = info.visibleItemsInfo.firstOrNull() ?: return 0f
+    val withinItem =
+        if (first.size > 0) (-first.offset).toFloat() / first.size.toFloat() else 0f
+    return ((state.firstVisibleItemIndex + withinItem) / total.toFloat())
+        .coerceIn(0f, 1f)
+}
 
+/** 0..1 position through a normal scrolling column. */
+private fun linearProgress(state: ScrollState): Float {
+    val max = state.maxValue
+    if (max <= 0) return 0f
+    return (state.value.toFloat() / max.toFloat()).coerceIn(0f, 1f)
+}
