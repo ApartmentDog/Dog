@@ -207,23 +207,30 @@ fun QuantityDialog(
 ) {
     // When the source gave no serving size, the numbers are per 100 g and the
     // honest question is "how many grams", not "how many servings".
-    val gramsMode = food.basisGrams != null
-    val basis = food.basisGrams ?: 1.0
+    val forcedAmount = food.basisGrams != null
+    val canUseAmount = forcedAmount || food.servingGrams != null
+    var byAmount by remember(food.name) { mutableStateOf(forcedAmount) }
+    val gramsMode = forcedAmount || byAmount
+    // What the nutrition numbers are relative to, in g/ml.
+    val basis = food.basisGrams ?: food.servingGrams ?: 1.0
 
     // A chosen published portion overrides the raw amount box.
     var chosenPortion by remember(food.name) { mutableStateOf<FoodPortion?>(null) }
-    var amount by remember { mutableStateOf(if (gramsMode) "100" else "1") }
+    var unit by remember(food.name) { mutableStateOf(MeasureUnit.G) }
+    var amount by remember(food.name) {
+        mutableStateOf(if (forcedAmount) MeasureUnit.G.default else "1")
+    }
     val entered = amount.toDoubleOrNull() ?: if (gramsMode) basis else 1.0
 
     val multiplier = when {
         chosenPortion != null -> (chosenPortion!!.gramWeight / basis) * entered
-        gramsMode -> entered / basis
+        gramsMode -> (entered * unit.perUnit) / basis
         else -> entered
     }
 
     val presets = when {
         chosenPortion != null -> listOf("0.5", "1", "1.5", "2", "3")
-        gramsMode -> listOf("50", "100", "150", "200", "250")
+        gramsMode -> unit.presets
         else -> listOf("0.5", "1", "1.5", "2", "3")
     }
 
@@ -258,9 +265,9 @@ fun QuantityDialog(
                 )
             }
 
-            if (gramsMode && portionOptions.isEmpty()) {
+            if (forcedAmount && portionOptions.isEmpty()) {
                 Text(
-                    "!! NO SERVING SIZE PUBLISHED — ENTER WEIGHT",
+                    "!! NO SERVING SIZE PUBLISHED — ENTER AMOUNT",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
@@ -301,10 +308,84 @@ fun QuantityDialog(
 
             Spacer(Modifier.height(12.dp))
 
+            if (!forcedAmount && canUseAmount && chosenPortion == null) {
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                    listOf(false to "SERVINGS", true to "AMOUNT").forEach { (mode, label) ->
+                        val isSel = byAmount == mode
+                        Text(
+                            text = label,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSel) AmberBright else AmberFaint,
+                            modifier = Modifier
+                                .clickable {
+                                    if (byAmount != mode) {
+                                        byAmount = mode
+                                        amount = if (mode) unit.default else "1"
+                                    }
+                                }
+                                .background(if (isSel) RowHighlight else ScreenInk)
+                                .padding(horizontal = 12.dp, vertical = 7.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                }
+                food.servingGrams?.let { sg ->
+                    Text(
+                        "1 serving = ${sg.toInt()} g/ml",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 8.sp,
+                        color = AmberFaint,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
+            }
+
+            if (gramsMode && chosenPortion == null) {
+                Text(
+                    "UNIT",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    color = AmberDim
+                )
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
+                    MeasureUnit.values().forEach { u ->
+                        val isSel = u == unit
+                        Text(
+                            text = u.label,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSel) AmberBright else AmberFaint,
+                            modifier = Modifier
+                                .clickable {
+                                    if (u != unit) {
+                                        unit = u
+                                        amount = u.default
+                                    }
+                                }
+                                .background(if (isSel) RowHighlight else ScreenInk)
+                                .padding(horizontal = 9.dp, vertical = 7.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
+                }
+                if (unit.isVolume) {
+                    Text(
+                        "Volume assumes roughly water density — close for most drinks.",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 8.sp,
+                        color = AmberFaint,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
+            }
+
             Text(
                 when {
                     chosenPortion != null -> "HOW MANY"
-                    gramsMode -> "GRAMS"
+                    gramsMode -> "AMOUNT (${unit.label})"
                     else -> "SERVINGS"
                 },
                 fontFamily = FontFamily.Monospace,
@@ -393,7 +474,7 @@ fun QuantityDialog(
                                     servingNote = when {
                                         chosenPortion != null ->
                                             "${trimQty(entered)} x ${chosenPortion!!.label}"
-                                        gramsMode -> "${entered.toInt()} g"
+                                        gramsMode -> "${trimQty(entered)} ${unit.label}"
                                         else -> food.servingNote
                                     },
                                     basisGrams = null
@@ -408,6 +489,24 @@ fun QuantityDialog(
 }
 
 private fun round1(v: Double): Double = kotlin.math.round(v * 10) / 10.0
+
+/**
+ * Units for entering an amount when a food only publishes per-100 values.
+ * perUnit converts one unit into grams (or ml, treated as grams for liquids).
+ */
+private enum class MeasureUnit(
+    val label: String,
+    val perUnit: Double,
+    val default: String,
+    val presets: List<String>,
+    val isVolume: Boolean
+) {
+    G("g", 1.0, "100", listOf("50", "100", "150", "200", "250"), false),
+    OZ("oz", 28.3495, "4", listOf("1", "2", "4", "6", "8"), false),
+    ML("ml", 1.0, "250", listOf("100", "250", "355", "500"), true),
+    FL_OZ("fl oz", 29.5735, "12", listOf("8", "12", "16", "20"), true),
+    CUP("cup", 236.588, "1", listOf("0.5", "1", "1.5", "2"), true)
+}
 
 private fun trimQty(v: Double): String =
     if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.1f", v)

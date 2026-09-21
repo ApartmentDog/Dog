@@ -16,6 +16,8 @@ data class ScannedFood(
      * instead of servings, so a 170 g biscuit isn't logged as 100 g.
      */
     val basisGrams: Double? = null,
+    /** Weight/volume of one serving in g or ml, when the source publishes it. */
+    val servingGrams: Double? = null,
     /** FDC id, so real portion options can be fetched when needed. */
     val sourceId: String? = null,
     val source: String,

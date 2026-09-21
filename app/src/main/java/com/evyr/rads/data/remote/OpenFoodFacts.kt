@@ -82,7 +82,7 @@ object OpenFoodFacts {
                 val note = when {
                     servingText.isNotBlank() && useServing -> "Per serving ($servingText)."
                     useServing -> "Per serving."
-                    else -> "Per 100 g/ml — adjust if your portion differs."
+                    else -> "Values are per 100 g/ml."
                 }
 
                 Result.Found(
@@ -96,6 +96,7 @@ object OpenFoodFacts {
                         servingNote = note,
                         barcode = barcode,
                         basisGrams = if (useServing) null else 100.0,
+                        servingGrams = servingQty.takeIf { useServing && !it.isNaN() && it > 0 },
                         source = "barcode"
                     )
                 )
@@ -169,9 +170,10 @@ object OpenFoodFacts {
                                     scalable && servingText.isNotBlank() ->
                                         "Per serving ($servingText)."
                                     scalable -> "Per serving."
-                                    else -> "Values are per 100 g."
+                                    else -> "Values are per 100 g/ml."
                                 },
                                 basisGrams = if (scalable) null else 100.0,
+                                servingGrams = servingQty.takeIf { scalable },
                                 source = "off"
                             )
                         )

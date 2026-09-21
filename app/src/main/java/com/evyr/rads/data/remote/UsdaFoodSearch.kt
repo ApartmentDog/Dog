@@ -118,7 +118,7 @@ object UsdaFoodSearch {
             scalable && household.isNotBlank() ->
                 "Per serving ($household, ${servingSize.roundToInt()}$servingUnit)."
             scalable -> "Per serving (${servingSize.roundToInt()}$servingUnit)."
-            else -> "Values are per 100 g."
+            else -> "Values are per 100 g/ml."
         }
 
         val name = if (brand.isNotBlank()) "$brand — $description" else description
@@ -132,6 +132,7 @@ object UsdaFoodSearch {
             saturatedFatGrams = round1(nutrient(N_SATFAT) * factor).takeIf { it > 0 },
             servingNote = note,
             basisGrams = if (scalable) null else 100.0,
+            servingGrams = servingSize.takeIf { scalable },
             sourceId = f.optLong("fdcId", 0L).takeIf { it > 0 }?.toString(),
             source = "usda"
         )
