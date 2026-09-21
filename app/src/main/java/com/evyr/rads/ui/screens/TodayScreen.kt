@@ -188,6 +188,7 @@ fun TodayScreen() {
                     entries = mealEntries,
                     selectedEntry = selectedEntry,
                     fatWarnGrams = fatLimit,
+                    conditions = profile?.conditionSet() ?: emptySet(),
                     listState = listState,
                     onSelectMeal = { activeMeal = it },
                     onSelectEntry = { vm.selectEntry(it.id) },

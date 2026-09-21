@@ -153,6 +153,16 @@ fun VerdictDialog(
                 }
             }
 
+            if (verdict.skipped.isNotEmpty()) {
+                Text(
+                    "Not checked (no data): " + verdict.skipped.joinToString(", "),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 8.sp,
+                    color = AmberFaint,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
             // ---- Extra nutrients, when the source has them ----
             val extras = listOfNotNull(
                 food.saturatedFatGrams?.let { "SAT FAT" to "${num(it)} g" },

@@ -39,11 +39,13 @@ enum class Trigger(val key: String, val label: String) {
 enum class Condition(
     val key: String,
     val label: String,
+    /** Compact tag shown on log rows, e.g. "GERD". */
+    val short: String,
     val watches: String,
     val triggers: Map<Trigger, Verdict>
 ) {
     REFLUX(
-        "reflux", "ACID REFLUX / GERD",
+        "reflux", "ACID REFLUX / GERD", "GERD",
         "caffeine, alcohol, spicy, fried, acidic, carbonated, chocolate/mint, large meals",
         mapOf(
             Trigger.CAFFEINE to Verdict.CAUTION,
@@ -56,7 +58,7 @@ enum class Condition(
         )
     ),
     HIATAL_HERNIA(
-        "hiatal_hernia", "HIATAL HERNIA",
+        "hiatal_hernia", "HIATAL HERNIA", "HERNIA",
         "large meals, carbonated, fried, spicy, caffeine, alcohol, acidic",
         mapOf(
             Trigger.CARBONATED to Verdict.CAUTION,
@@ -68,7 +70,7 @@ enum class Condition(
         )
     ),
     IBS(
-        "ibs", "IBS",
+        "ibs", "IBS", "IBS",
         "high FODMAP, fried, spicy, caffeine, alcohol, carbonated",
         mapOf(
             Trigger.HIGH_FODMAP to Verdict.CAUTION,
@@ -80,7 +82,7 @@ enum class Condition(
         )
     ),
     FATTY_LIVER(
-        "fatty_liver", "FATTY LIVER",
+        "fatty_liver", "FATTY LIVER", "LIVER",
         "alcohol, added sugar and fructose, saturated fat, fried",
         mapOf(
             Trigger.ALCOHOL to Verdict.OVER_LIMIT,
@@ -89,22 +91,22 @@ enum class Condition(
         )
     ),
     DIABETES(
-        "diabetes", "DIABETES / PREDIABETES",
+        "diabetes", "DIABETES / PREDIABETES", "DIABETES",
         "carbs and sugar per meal, sugary drinks",
         mapOf(Trigger.FRUCTOSE to Verdict.CAUTION)
     ),
     HYPERTENSION(
-        "hypertension", "HIGH BLOOD PRESSURE",
+        "hypertension", "HIGH BLOOD PRESSURE", "BP",
         "sodium per meal, alcohol",
         mapOf(Trigger.ALCOHOL to Verdict.CAUTION)
     ),
     CHOLESTEROL(
-        "cholesterol", "HIGH CHOLESTEROL",
+        "cholesterol", "HIGH CHOLESTEROL", "CHOL",
         "saturated fat per meal, fried food",
         mapOf(Trigger.FRIED to Verdict.CAUTION)
     ),
     GOUT(
-        "gout", "GOUT",
+        "gout", "GOUT", "GOUT",
         "high-purine foods (organ meat, some seafood), alcohol especially beer, sugary drinks",
         mapOf(
             Trigger.HIGH_PURINE to Verdict.CAUTION,
@@ -113,12 +115,12 @@ enum class Condition(
         )
     ),
     LACTOSE(
-        "lactose", "LACTOSE INTOLERANCE",
+        "lactose", "LACTOSE INTOLERANCE", "LACTOSE",
         "dairy",
         mapOf(Trigger.DAIRY to Verdict.CAUTION)
     ),
     CELIAC(
-        "celiac", "CELIAC / GLUTEN-FREE",
+        "celiac", "CELIAC / GLUTEN-FREE", "CELIAC",
         "gluten — wheat, barley, rye, most breads, pasta and batters",
         mapOf(Trigger.GLUTEN to Verdict.OVER_LIMIT)
     );
@@ -216,18 +218,143 @@ data class VerdictResult(
     val verdict: Verdict,
     val headline: String,
     val reasons: List<String>,
+    /** Only real flags, each tied to the condition it's for. */
     val warnings: List<ConditionWarning> = emptyList(),
-    val triggers: Set<Trigger> = emptySet()
+    val triggers: Set<Trigger> = emptySet(),
+    /** Checks that couldn't run because the source had no data. Not warnings. */
+    val skipped: List<String> = emptyList()
 )
+
+/** A per-meal amount rule for one condition. */
+private class AmountRule(
+    val condition: Condition,
+    val label: String,
+    val unit: String,
+    val caution: Double,
+    val over: Double,
+    val fromEntry: (FoodLogEntry) -> Double?,
+    val fromFood: (ScannedFood) -> Double?
+)
+
+private val AMOUNT_RULES = listOf(
+    AmountRule(Condition.REFLUX, "meal size", "kcal",
+        Thresholds.REFLUX_MEAL_KCAL_CAUTION.toDouble(), Thresholds.REFLUX_MEAL_KCAL_OVER.toDouble(),
+        { it.calories.toDouble() }, { it.calories.toDouble() }),
+    AmountRule(Condition.HIATAL_HERNIA, "meal size", "kcal",
+        Thresholds.HERNIA_MEAL_KCAL_CAUTION.toDouble(), Thresholds.HERNIA_MEAL_KCAL_OVER.toDouble(),
+        { it.calories.toDouble() }, { it.calories.toDouble() }),
+    AmountRule(Condition.FATTY_LIVER, "sugar", "g",
+        Thresholds.SUGAR_CAUTION_G, Thresholds.SUGAR_OVER_G,
+        { it.sugarGrams }, { it.sugarGrams }),
+    AmountRule(Condition.FATTY_LIVER, "sat fat", "g",
+        Thresholds.SATFAT_CAUTION_G, Thresholds.SATFAT_OVER_G,
+        { it.saturatedFatGrams }, { it.saturatedFatGrams }),
+    AmountRule(Condition.DIABETES, "carbs", "g",
+        Thresholds.CARB_CAUTION_G, Thresholds.CARB_OVER_G,
+        { it.carbGrams }, { it.carbGrams }),
+    AmountRule(Condition.DIABETES, "sugar", "g",
+        Thresholds.SUGAR_CAUTION_G, Thresholds.SUGAR_OVER_G,
+        { it.sugarGrams }, { it.sugarGrams }),
+    AmountRule(Condition.HYPERTENSION, "sodium", "mg",
+        Thresholds.SODIUM_CAUTION_MG, Thresholds.SODIUM_OVER_MG,
+        { it.sodiumMg }, { it.sodiumMg }),
+    AmountRule(Condition.CHOLESTEROL, "sat fat", "g",
+        Thresholds.SATFAT_CAUTION_G, Thresholds.SATFAT_OVER_G,
+        { it.saturatedFatGrams }, { it.saturatedFatGrams })
+)
+
+private fun worst(a: Verdict, b: Verdict) = if (b.ordinal > a.ordinal) b else a
+
+private fun fmt(v: Double): String =
+    if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.1f", v)
+
+/** Collects flags per condition, keeping the worst severity. */
+private class FlagCollector {
+    private val sev = mutableMapOf<Condition, Verdict>()
+    private val details = mutableMapOf<Condition, MutableList<String>>()
+
+    fun add(c: Condition, s: Verdict, detail: String) {
+        if (s == Verdict.PASS) return
+        sev[c] = worst(sev[c] ?: Verdict.PASS, s)
+        details.getOrPut(c) { mutableListOf() }.add(detail)
+    }
+
+    fun build(): List<ConditionWarning> =
+        Condition.values().filter { it in details }
+            .map { ConditionWarning(it, sev.getValue(it), details.getValue(it)) }
+}
+
+private fun FlagCollector.triggers(found: Set<Trigger>, conditions: Set<Condition>) {
+    for (c in Condition.values()) {
+        if (c !in conditions) continue
+        c.triggers.forEach { (t, s) -> if (t in found) add(c, s, t.label) }
+    }
+}
+
+/**
+ * Amount checks over a list of values (one per item in the meal).
+ * Unknown values are ignored; if every value is unknown the check is skipped.
+ */
+private fun FlagCollector.amounts(
+    conditions: Set<Condition>,
+    valuesFor: (AmountRule) -> List<Double?>
+) {
+    for (rule in AMOUNT_RULES) {
+        if (rule.condition !in conditions) continue
+        val values = valuesFor(rule)
+        if (values.none { it != null }) continue
+        val total = values.sumOf { it ?: 0.0 }
+        val level = when {
+            total >= rule.over -> Verdict.OVER_LIMIT
+            total >= rule.caution -> Verdict.CAUTION
+            else -> Verdict.PASS
+        }
+        val partial = values.any { it == null }
+        add(
+            rule.condition, level,
+            "${rule.label} ${fmt(total)}${rule.unit} this meal (limit ~${fmt(rule.over)}${rule.unit})" +
+                if (partial) ", some items lack data" else ""
+        )
+    }
+}
+
+/**
+ * Live flags for things already logged. Worked out against the conditions
+ * ticked right now, so changing Settings updates old entries too.
+ */
+object ConditionFlags {
+
+    /** Stored triggers when present; otherwise detected from the name (older entries). */
+    fun triggersOf(entry: FoodLogEntry): Set<Trigger> =
+        entry.triggers?.let { Trigger.parse(it) }
+            ?: TriggerDetector.detect(entry.name, null, emptySet())
+
+    /** What's in this one food that a ticked condition cares about. */
+    fun forEntry(entry: FoodLogEntry, conditions: Set<Condition>): List<ConditionWarning> {
+        if (conditions.isEmpty()) return emptyList()
+        return FlagCollector().apply { triggers(triggersOf(entry), conditions) }.build()
+    }
+
+    /** Triggers present that no ticked condition cares about — shown quietly. */
+    fun irrelevantTriggers(entry: FoodLogEntry, conditions: Set<Condition>): Set<Trigger> {
+        val relevant = conditions.flatMap { it.triggers.keys }.toSet()
+        return triggersOf(entry) - relevant
+    }
+
+    /** Amount checks across a whole meal (sodium, sugar, carbs, sat fat, size). */
+    fun forMeal(entries: List<FoodLogEntry>, conditions: Set<Condition>): List<ConditionWarning> {
+        if (conditions.isEmpty() || entries.isEmpty()) return emptyList()
+        return FlagCollector().apply {
+            amounts(conditions) { rule -> entries.map(rule.fromEntry) }
+        }.build()
+    }
+}
 
 object VerdictRules {
 
-    private fun worst(a: Verdict, b: Verdict) = if (b.ordinal > a.ordinal) b else a
-
     /**
      * Fat is judged against the per-meal ceiling. Condition checks add their
-     * own flags; the stamp shows the worst of everything. Totals always
-     * include what's already logged in this meal.
+     * own flags, each naming its condition; the stamp shows the worst of all.
      */
     fun evaluate(
         food: ScannedFood,
@@ -252,102 +379,31 @@ object VerdictRules {
         if (food.confidence == "low") reasons += "AI estimate — numbers are approximate."
 
         // ---- Conditions ----
-        val triggers = TriggerDetector.detect(food.name, food.ingredients, food.tags)
-        val warnings = mutableListOf<ConditionWarning>()
-
-        for (c in Condition.values().filter { it in conditions }) {
-            var sev = Verdict.PASS
-            val details = mutableListOf<String>()
-
-            c.triggers.forEach { (t, s) ->
-                if (t in triggers) {
-                    sev = worst(sev, s)
-                    details += t.label
-                }
+        val found = TriggerDetector.detect(food.name, food.ingredients, food.tags)
+        val skipped = mutableListOf<String>()
+        val collector = FlagCollector()
+        collector.triggers(found, conditions)
+        collector.amounts(conditions) { rule ->
+            val item = rule.fromFood(food)
+            if (item == null) {
+                skipped += "${rule.label} for ${rule.condition.short}"
+                listOf<Double?>(null)
+            } else {
+                mealEntries.map(rule.fromEntry) + item
             }
-
-            fun numeric(
-                label: String,
-                unit: String,
-                item: Double?,
-                pick: (FoodLogEntry) -> Double?,
-                caution: Double,
-                over: Double
-            ) {
-                if (item == null) {
-                    details += "no $label data for this item"
-                    return
-                }
-                val prior = mealEntries.map(pick)
-                val total = prior.sumOf { it ?: 0.0 } + item
-                val partial = prior.any { it == null }
-                val level = when {
-                    total >= over -> Verdict.OVER_LIMIT
-                    total >= caution -> Verdict.CAUTION
-                    else -> Verdict.PASS
-                }
-                if (level != Verdict.PASS) {
-                    sev = worst(sev, level)
-                    details += "$label ${fmt(total)}$unit this meal (limit ~${fmt(over)}$unit)" +
-                        if (partial) ", earlier items lack data" else ""
-                }
-            }
-
-            fun mealSize(caution: Int, over: Int) {
-                val total = mealEntries.sumOf { it.calories } + food.calories
-                val level = when {
-                    total >= over -> Verdict.OVER_LIMIT
-                    total >= caution -> Verdict.CAUTION
-                    else -> Verdict.PASS
-                }
-                if (level != Verdict.PASS) {
-                    sev = worst(sev, level)
-                    details += "large meal, $total kcal"
-                }
-            }
-
-            when (c) {
-                Condition.REFLUX -> mealSize(
-                    Thresholds.REFLUX_MEAL_KCAL_CAUTION, Thresholds.REFLUX_MEAL_KCAL_OVER
-                )
-                Condition.HIATAL_HERNIA -> mealSize(
-                    Thresholds.HERNIA_MEAL_KCAL_CAUTION, Thresholds.HERNIA_MEAL_KCAL_OVER
-                )
-                Condition.FATTY_LIVER -> {
-                    numeric("sugar", "g", food.sugarGrams, { it.sugarGrams },
-                        Thresholds.SUGAR_CAUTION_G, Thresholds.SUGAR_OVER_G)
-                    numeric("sat fat", "g", food.saturatedFatGrams, { it.saturatedFatGrams },
-                        Thresholds.SATFAT_CAUTION_G, Thresholds.SATFAT_OVER_G)
-                }
-                Condition.DIABETES -> {
-                    numeric("carbs", "g", food.carbGrams, { it.carbGrams },
-                        Thresholds.CARB_CAUTION_G, Thresholds.CARB_OVER_G)
-                    numeric("sugar", "g", food.sugarGrams, { it.sugarGrams },
-                        Thresholds.SUGAR_CAUTION_G, Thresholds.SUGAR_OVER_G)
-                }
-                Condition.HYPERTENSION ->
-                    numeric("sodium", "mg", food.sodiumMg, { it.sodiumMg },
-                        Thresholds.SODIUM_CAUTION_MG, Thresholds.SODIUM_OVER_MG)
-                Condition.CHOLESTEROL ->
-                    numeric("sat fat", "g", food.saturatedFatGrams, { it.saturatedFatGrams },
-                        Thresholds.SATFAT_CAUTION_G, Thresholds.SATFAT_OVER_G)
-                else -> Unit
-            }
-
-            if (details.isNotEmpty()) warnings += ConditionWarning(c, sev, details)
         }
+        val warnings = collector.build()
 
-        val flagged = warnings.filter { it.severity != Verdict.PASS }
-        val overall = flagged.fold(fatVerdict) { acc, w -> worst(acc, w.severity) }
+        val overall = warnings.fold(fatVerdict) { acc, w -> worst(acc, w.severity) }
 
         val parts = mutableListOf<String>()
         when (fatVerdict) {
-            Verdict.OVER_LIMIT -> parts += "EXCEEDS MEAL FAT LIMIT"
-            Verdict.CAUTION -> parts += "APPROACHING FAT LIMIT"
+            Verdict.OVER_LIMIT -> parts += "OVER MEAL FAT LIMIT"
+            Verdict.CAUTION -> parts += "NEAR FAT LIMIT"
             Verdict.PASS -> Unit
         }
-        if (flagged.isNotEmpty()) {
-            parts += "${flagged.size} CONDITION FLAG" + if (flagged.size > 1) "S" else ""
+        if (warnings.isNotEmpty()) {
+            parts += "FLAGGED: " + warnings.joinToString(", ") { it.condition.short }
         }
 
         return VerdictResult(
@@ -355,10 +411,8 @@ object VerdictRules {
             headline = if (parts.isEmpty()) "WITHIN LIMITS" else parts.joinToString(" / "),
             reasons = reasons,
             warnings = warnings,
-            triggers = triggers
+            triggers = found,
+            skipped = skipped.distinct()
         )
     }
-
-    private fun fmt(v: Double): String =
-        if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.1f", v)
 }

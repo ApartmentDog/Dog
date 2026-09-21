@@ -23,7 +23,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.evyr.rads.data.Trigger
+import com.evyr.rads.data.Condition
+import com.evyr.rads.data.ConditionFlags
+import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.local.FoodLogEntry
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -43,6 +45,7 @@ fun TabLogView(
     entries: List<FoodLogEntry>,
     selectedEntry: FoodLogEntry?,
     fatWarnGrams: Double,
+    conditions: Set<Condition>,
     listState: LazyListState,
     onSelectMeal: (String) -> Unit,
     onSelectEntry: (FoodLogEntry) -> Unit,
@@ -210,6 +213,16 @@ fun TabLogView(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
         }
+        ConditionFlags.forMeal(entries, conditions).forEach { w ->
+            Text(
+                "${w.condition.short}: ${w.details.joinToString("; ")}",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 9.sp,
+                fontWeight = if (w.severity == Verdict.OVER_LIMIT) FontWeight.Bold else FontWeight.Normal,
+                color = severityColor(w.severity),
+                modifier = Modifier.padding(bottom = 3.dp)
+            )
+        }
         Hairline()
 
         if (entries.isEmpty()) {
@@ -231,12 +244,18 @@ fun TabLogView(
                             .clickable { onSelectEntry(entry) }
                             .padding(horizontal = 5.dp, vertical = 6.dp)
                     ) {
+                        val flags = ConditionFlags.forEntry(entry, conditions)
+                        val worstFlag = flags.maxByOrNull { it.severity.ordinal }?.severity
                         Row(Modifier.fillMaxWidth()) {
                             Text(
                                 if (isSel) "> ${entry.name}" else "  ${entry.name}",
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 11.sp,
-                                color = if (entry.flagged) AmberWarn else if (isSel) AmberBright else AmberDim,
+                                color = when {
+                                    worstFlag == Verdict.OVER_LIMIT -> AmberWarn
+                                    isSel -> AmberBright
+                                    else -> AmberDim
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
@@ -246,9 +265,30 @@ fun TabLogView(
                                 color = if (isSel) AmberBright else AmberDim
                             )
                         }
+                        if (flags.isNotEmpty()) {
+                            Row(Modifier.padding(start = 14.dp, top = 2.dp)) {
+                                flags.forEachIndexed { i, w ->
+                                    if (i > 0) {
+                                        Text(
+                                            " · ",
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 9.sp,
+                                            color = AmberFaint
+                                        )
+                                    }
+                                    Text(
+                                        w.condition.short,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = severityColor(w.severity)
+                                    )
+                                }
+                            }
+                        }
                         if (isSel) {
                             Spacer(Modifier.height(6.dp))
-                            StatRow("FAT", "${trim(entry.fatGrams)} g", warn = entry.flagged)
+                            StatRow("FAT", "${trim(entry.fatGrams)} g")
                             StatRow("PROTEIN", "${trim(entry.proteinGrams)} g")
                             StatRow("CARBS", "${trim(entry.carbGrams)} g")
                             entry.saturatedFatGrams?.let { StatRow("SAT FAT", "${trim(it)} g") }
@@ -256,14 +296,26 @@ fun TabLogView(
                             entry.fiberGrams?.let { StatRow("FIBER", "${trim(it)} g") }
                             entry.sodiumMg?.let { StatRow("SODIUM", "${it.toInt()} mg") }
                             StatRow("SOURCE", entry.source.uppercase())
-                            Trigger.parse(entry.triggers).takeIf { it.isNotEmpty() }?.let { ts ->
-                                StatRow(
-                                    "TRIGGERS",
-                                    ts.joinToString(", ") { it.label },
-                                    warn = true
+                            flags.forEach { w ->
+                                Text(
+                                    "${w.condition.label}: ${w.details.joinToString(", ")}",
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 9.sp,
+                                    color = severityColor(w.severity),
+                                    modifier = Modifier.padding(vertical = 2.dp)
                                 )
                             }
-                            entry.flagReason?.let { StatRow("FLAG", it, warn = true) }
+                            ConditionFlags.irrelevantTriggers(entry, conditions)
+                                .takeIf { it.isNotEmpty() }
+                                ?.let { other ->
+                                    Text(
+                                        "other: " + other.joinToString(", ") { it.label },
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 8.sp,
+                                        color = AmberFaint,
+                                        modifier = Modifier.padding(vertical = 2.dp)
+                                    )
+                                }
                             TerminalAction("[DELETE ENTRY]", { onDeleteEntry(entry) }, warn = true)
                         }
                     }
@@ -291,6 +343,13 @@ private fun DayMacro(label: String, value: String, modifier: Modifier = Modifier
             color = Amber
         )
     }
+}
+
+/** Caution reads as amber, over-limit as warning red. */
+internal fun severityColor(v: Verdict) = when (v) {
+    Verdict.OVER_LIMIT -> AmberWarn
+    Verdict.CAUTION -> Amber
+    Verdict.PASS -> AmberFaint
 }
 
 internal fun trim(v: Double): String =
