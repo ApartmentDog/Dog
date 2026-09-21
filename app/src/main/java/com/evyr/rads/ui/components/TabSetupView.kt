@@ -84,13 +84,14 @@ private data class SetupDraft(
         }
     }
 
-    private fun heightCmValue(): Double? = if (imperial) {
+    private fun heightCmValue(): Double? {
+        if (!imperial) {
+            return if (heightCm.isBlank()) 0.0 else heightCm.trim().toDoubleOrNull()
+        }
         val f = if (feet.isBlank()) 0 else feet.trim().toIntOrNull() ?: return null
         val i = if (inches.isBlank()) 0 else inches.trim().toIntOrNull() ?: return null
         if (i !in 0..11) return null
-        Units.feetInchesToCm(f, i)
-    } else {
-        if (heightCm.isBlank()) 0.0 else heightCm.trim().toDoubleOrNull()
+        return Units.feetInchesToCm(f, i)
     }
 
     private fun weightKgValue(text: String): Double? =
