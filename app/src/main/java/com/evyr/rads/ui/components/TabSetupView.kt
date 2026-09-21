@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.evyr.rads.BuildConfig
 import com.evyr.rads.data.AppPrefs
+import com.evyr.rads.data.Condition
 import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.UserProfile
@@ -58,7 +59,8 @@ private data class SetupDraft(
     val goalWeight: String,
     val rate: String,
     val activity: String,
-    val fatLimit: String
+    val fatLimit: String,
+    val conditions: Set<Condition>
 ) {
     companion object {
         fun from(p: UserProfile): SetupDraft {
@@ -76,7 +78,8 @@ private data class SetupDraft(
                 goalWeight = Units.displayWeight(p.goalWeightKg, p.useImperial),
                 rate = trim(p.rateLbsPerWeek),
                 activity = p.activityLevel,
-                fatLimit = trim(p.fatWarnGramsPerMeal)
+                fatLimit = trim(p.fatWarnGramsPerMeal),
+                conditions = p.conditionSet()
             )
         }
     }
@@ -127,7 +130,8 @@ private data class SetupDraft(
             goalWeightKg = if (goalUntouched) base.goalWeightKg else goalV,
             rateLbsPerWeek = rateV,
             activityLevel = activity,
-            fatWarnGramsPerMeal = fatV
+            fatWarnGramsPerMeal = fatV,
+            conditions = Condition.toCsv(conditions)
         ) to null
     }
 
@@ -268,6 +272,47 @@ fun TabSetupView(
             modifier = Modifier.padding(bottom = 4.dp)
         )
         EditNumber("GRAMS", d.fatLimit) { v -> edit { it.copy(fatLimit = v) } }
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
+        SectionLabel("HEALTH CONDITIONS")
+        Text(
+            "Tick any that apply. Foods get flagged for them before you log. " +
+                "General guidance only — your doctor's instructions override these.",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 8.sp,
+            color = AmberFaint,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        Condition.values().forEach { c ->
+            val on = c in d.conditions
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        edit {
+                            it.copy(conditions = if (on) it.conditions - c else it.conditions + c)
+                        }
+                    }
+                    .background(if (on) RowHighlight else Color.Transparent)
+                    .padding(horizontal = 6.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    (if (on) "[X] " else "[ ] ") + c.label,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                    color = if (on) AmberBright else AmberDim
+                )
+                Text(
+                    "watches: " + c.watches,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 8.sp,
+                    color = AmberFaint,
+                    modifier = Modifier.padding(start = 28.dp, top = 2.dp)
+                )
+            }
+        }
 
         Spacer(Modifier.height(4.dp))
         Hairline()

@@ -15,5 +15,11 @@ data class FoodLogEntry(
     val carbGrams: Double,
     val source: String, // manual, barcode, search, menu
     val flagged: Boolean = false,
-    val flagReason: String? = null
+    val flagReason: String? = null,
+    val saturatedFatGrams: Double? = null,
+    val sugarGrams: Double? = null,
+    val fiberGrams: Double? = null,
+    val sodiumMg: Double? = null,
+    /** Comma-separated Trigger keys detected when logged. */
+    val triggers: String? = null
 )

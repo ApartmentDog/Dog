@@ -14,7 +14,7 @@ object DatabaseProvider {
                 RadsDatabase::class.java,
                 "rads.db"
             )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
                 .also { instance = it }
         }

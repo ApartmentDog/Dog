@@ -46,6 +46,10 @@ Respond with ONLY a JSON array, no markdown fences, no commentary:
     "saturated_fat_g": 0,
     "protein_g": 0,
     "carbs_g": 0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 0,
+    "tags": [],
     "portion": "the portion these numbers describe, e.g. 1 biscuit",
     "confidence": "high" | "medium" | "low"
   }
@@ -53,6 +57,11 @@ Respond with ONLY a JSON array, no markdown fences, no commentary:
 
 Rules:
 - Use the chain's own published nutrition where you know it.
+- "tags" lists which of these apply, using only these exact words:
+  caffeine, alcohol, spicy, fried, acidic, carbonated, chocolate_mint, dairy,
+  gluten, high_purine, high_fodmap, fructose. Include things that are typical
+  of how the item is actually made, e.g. a restaurant chicken biscuit is fried
+  and contains gluten and dairy. Use [] if none apply.
 - Numbers are for ONE standard portion, not per 100 g.
 - At most 5 entries, best match first.
 - If you have no idea, return [].
@@ -73,6 +82,10 @@ Respond with ONLY a JSON array, no markdown fences, no commentary:
     "saturated_fat_g": 0,
     "protein_g": 0,
     "carbs_g": 0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 0,
+    "tags": [],
     "portion": "what portion this assumes",
     "confidence": "high" | "medium" | "low"
   }
@@ -80,6 +93,11 @@ Respond with ONLY a JSON array, no markdown fences, no commentary:
 
 Rules:
 - Numbers only, no units inside the numeric fields.
+- "tags" lists which of these apply, using only these exact words:
+  caffeine, alcohol, spicy, fried, acidic, carbonated, chocolate_mint, dairy,
+  gluten, high_purine, high_fodmap, fructose. Include things that are typical
+  of how the item is actually made, e.g. a restaurant chicken biscuit is fried
+  and contains gluten and dairy. Use [] if none apply.
 - Estimate one entry per distinct dish, at most 8 entries.
 - If you cannot identify any food, return [].
 """
@@ -203,6 +221,14 @@ Rules:
                                 carbGrams = o.optDouble("carbs_g", 0.0),
                                 saturatedFatGrams =
                                     o.optDouble("saturated_fat_g", 0.0).takeIf { it > 0 },
+                                sugarGrams = o.optDouble("sugar_g", Double.NaN).takeIf { !it.isNaN() },
+                                fiberGrams = o.optDouble("fiber_g", Double.NaN).takeIf { !it.isNaN() },
+                                sodiumMg = o.optDouble("sodium_mg", Double.NaN).takeIf { !it.isNaN() },
+                                tags = o.optJSONArray("tags")?.let { arr ->
+                                    (0 until arr.length()).mapNotNull {
+                                        arr.optString(it).trim().lowercase().ifBlank { null }
+                                    }.toSet()
+                                } ?: emptySet(),
                                 servingNote = o.optString("portion", "").ifBlank { null },
                                 source = "vision",
                                 confidence = o.optString("confidence", "medium")

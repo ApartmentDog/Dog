@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.evyr.rads.data.FoodPortion
 import com.evyr.rads.data.ScannedFood
 import com.evyr.rads.data.SecureStore
+import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.VerdictResult
 import com.evyr.rads.data.VerdictRules
 import com.evyr.rads.data.local.DatabaseProvider
@@ -321,15 +322,19 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     fun assess(food: ScannedFood, mealSlot: String? = null) {
         viewModelScope.launch {
             val slot = mealSlot ?: activeMealSlot
-            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
-            val already = entries.value
-                .filter { it.mealSlot == slot }
-                .sumOf { it.fatGrams }
-            _scanState.value = ScanState.Assess(
-                food,
-                VerdictRules.evaluate(food, already, limit)
-            )
+            _scanState.value = ScanState.Assess(food, evaluateFor(food, slot))
         }
+    }
+
+    /** Fat and condition checks against everything already in this meal. */
+    private suspend fun evaluateFor(food: ScannedFood, mealSlot: String): VerdictResult {
+        val profile = profileDao.get()
+        return VerdictRules.evaluate(
+            food = food,
+            mealEntries = entries.value.filter { it.mealSlot == mealSlot },
+            fatLimitPerMeal = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS,
+            conditions = profile?.conditionSet() ?: emptySet()
+        )
     }
 
     /** The meal slot the UI is currently showing, so scans land in the right place. */
@@ -337,24 +342,32 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
     fun commitScanned(food: ScannedFood, mealSlot: String) {
         viewModelScope.launch {
-            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
-            val over = food.fatGrams >= limit
-            foodDao.insert(
-                FoodLogEntry(
-                    timestamp = timestampForViewedDay(),
-                    mealSlot = mealSlot,
-                    name = food.name,
-                    calories = food.calories,
-                    fatGrams = food.fatGrams,
-                    proteinGrams = food.proteinGrams,
-                    carbGrams = food.carbGrams,
-                    source = food.source,
-                    flagged = over,
-                    flagReason = if (over) "OVER MEAL FAT LIMIT" else null
-                )
-            )
+            insertEvaluated(food, mealSlot)
             _scanState.value = ScanState.Idle
         }
+    }
+
+    private suspend fun insertEvaluated(food: ScannedFood, mealSlot: String) {
+        val v = evaluateFor(food, mealSlot)
+        foodDao.insert(
+            FoodLogEntry(
+                timestamp = timestampForViewedDay(),
+                mealSlot = mealSlot,
+                name = food.name,
+                calories = food.calories,
+                fatGrams = food.fatGrams,
+                proteinGrams = food.proteinGrams,
+                carbGrams = food.carbGrams,
+                source = food.source,
+                flagged = v.verdict == Verdict.OVER_LIMIT,
+                flagReason = v.headline.takeIf { v.verdict != Verdict.PASS },
+                saturatedFatGrams = food.saturatedFatGrams,
+                sugarGrams = food.sugarGrams,
+                fiberGrams = food.fiberGrams,
+                sodiumMg = food.sodiumMg,
+                triggers = v.triggers.joinToString(",") { it.key }.ifBlank { null }
+            )
+        )
     }
 
     init {
@@ -391,21 +404,16 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         carbGrams: Double
     ) {
         viewModelScope.launch {
-            val limit = profileDao.get()?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
-            val overLimit = fatGrams >= limit
-            foodDao.insert(
-                FoodLogEntry(
-                    timestamp = timestampForViewedDay(),
-                    mealSlot = mealSlot,
+            insertEvaluated(
+                ScannedFood(
                     name = name,
                     calories = calories,
                     fatGrams = fatGrams,
                     proteinGrams = proteinGrams,
                     carbGrams = carbGrams,
-                    source = "manual",
-                    flagged = overLimit,
-                    flagReason = if (overLimit) "OVER MEAL FAT LIMIT" else null
-                )
+                    source = "manual"
+                ),
+                mealSlot
             )
         }
     }

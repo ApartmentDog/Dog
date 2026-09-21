@@ -1,5 +1,6 @@
 package com.evyr.rads.data.local
 
+import com.evyr.rads.data.Condition
 import com.evyr.rads.data.Units
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -30,6 +31,8 @@ data class UserProfile(
      * budget — firm dietary requirement, do not aggregate.
      */
     val fatWarnGramsPerMeal: Double = DEFAULT_FAT_WARN_GRAMS,
+    /** Comma-separated Condition keys the user switched on in Settings. */
+    val conditions: String = "",
     val onboarded: Boolean = false
 ) {
     fun bmr(): Double {
@@ -68,6 +71,8 @@ data class UserProfile(
         val floor = if (sex == "male") 1500 else 1200
         return maxOf((t + dailyAdjustment()).toInt(), floor)
     }
+
+    fun conditionSet(): Set<Condition> = Condition.parse(conditions)
 
     /** Pounds remaining to goal; null when no goal set. */
     fun poundsToGoal(): Double? {

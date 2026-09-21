@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.Trigger
 import com.evyr.rads.data.local.FoodLogEntry
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -250,7 +251,18 @@ fun TabLogView(
                             StatRow("FAT", "${trim(entry.fatGrams)} g", warn = entry.flagged)
                             StatRow("PROTEIN", "${trim(entry.proteinGrams)} g")
                             StatRow("CARBS", "${trim(entry.carbGrams)} g")
+                            entry.saturatedFatGrams?.let { StatRow("SAT FAT", "${trim(it)} g") }
+                            entry.sugarGrams?.let { StatRow("SUGAR", "${trim(it)} g") }
+                            entry.fiberGrams?.let { StatRow("FIBER", "${trim(it)} g") }
+                            entry.sodiumMg?.let { StatRow("SODIUM", "${it.toInt()} mg") }
                             StatRow("SOURCE", entry.source.uppercase())
+                            Trigger.parse(entry.triggers).takeIf { it.isNotEmpty() }?.let { ts ->
+                                StatRow(
+                                    "TRIGGERS",
+                                    ts.joinToString(", ") { it.label },
+                                    warn = true
+                                )
+                            }
                             entry.flagReason?.let { StatRow("FLAG", it, warn = true) }
                             TerminalAction("[DELETE ENTRY]", { onDeleteEntry(entry) }, warn = true)
                         }

@@ -29,7 +29,7 @@ object OpenFoodFacts {
     suspend fun lookup(barcode: String): Result = withContext(Dispatchers.IO) {        try {
             val url =
                 "https://world.openfoodfacts.org/api/v2/product/$barcode.json" +
-                    "?fields=product_name,brands,serving_size,serving_quantity,nutriments"
+                    "?fields=product_name,brands,serving_size,serving_quantity,nutriments,ingredients_text"
 
             val request = Request.Builder()
                 .url(url)
@@ -93,6 +93,10 @@ object OpenFoodFacts {
                         proteinGrams = round1(value("proteins")),
                         carbGrams = round1(value("carbohydrates")),
                         saturatedFatGrams = round1(value("saturated-fat")).takeIf { it > 0 },
+                        sugarGrams = optNutrient(n, "sugars") { round1(value("sugars")) },
+                        fiberGrams = optNutrient(n, "fiber") { round1(value("fiber")) },
+                        sodiumMg = optNutrient(n, "sodium") { (value("sodium") * 1000).roundToInt().toDouble() },
+                        ingredients = product.optString("ingredients_text", "").ifBlank { null },
                         servingNote = note,
                         barcode = barcode,
                         basisGrams = if (useServing) null else 100.0,
@@ -115,7 +119,7 @@ object OpenFoodFacts {
                 "https://world.openfoodfacts.org/cgi/search.pl" +
                     "?search_terms=$encoded&search_simple=1&action=process&json=1" +
                     "&page_size=15" +
-                    "&fields=product_name,brands,serving_size,serving_quantity,nutriments"
+                    "&fields=product_name,brands,serving_size,serving_quantity,nutriments,ingredients_text"
 
             val request = Request.Builder()
                 .url(url)
@@ -166,6 +170,10 @@ object OpenFoodFacts {
                                 proteinGrams = round1(v("proteins")),
                                 carbGrams = round1(v("carbohydrates")),
                                 saturatedFatGrams = round1(v("saturated-fat")).takeIf { it > 0 },
+                                sugarGrams = optNutrient(n, "sugars") { round1(v("sugars")) },
+                                fiberGrams = optNutrient(n, "fiber") { round1(v("fiber")) },
+                                sodiumMg = optNutrient(n, "sodium") { (v("sodium") * 1000).roundToInt().toDouble() },
+                                ingredients = product.optString("ingredients_text", "").ifBlank { null },
                                 servingNote = when {
                                     scalable && servingText.isNotBlank() ->
                                         "Per serving ($servingText)."
@@ -186,4 +194,12 @@ object OpenFoodFacts {
     }
 
     private fun round1(v: Double): Double = (v * 10).roundToInt() / 10.0
+
+    /** Null when the product doesn't publish this nutrient at all — unknown, not zero. */
+    private inline fun optNutrient(
+        n: JSONObject,
+        key: String,
+        compute: () -> Double
+    ): Double? =
+        if (n.has("${key}_100g") || n.has("${key}_serving")) compute() else null
 }

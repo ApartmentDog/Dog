@@ -444,6 +444,8 @@ fun QuantityDialog(
             StatRow("FAT", "${round1(food.fatGrams * multiplier)} g")
             StatRow("PROTEIN", "${round1(food.proteinGrams * multiplier)} g")
             StatRow("CARBS", "${round1(food.carbGrams * multiplier)} g")
+            food.sugarGrams?.let { StatRow("SUGAR", "${round1(it * multiplier)} g") }
+            food.sodiumMg?.let { StatRow("SODIUM", "${kotlin.math.round(it * multiplier).toInt()} mg") }
 
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth()) {
@@ -471,6 +473,9 @@ fun QuantityDialog(
                                     carbGrams = round1(food.carbGrams * multiplier),
                                     saturatedFatGrams = food.saturatedFatGrams
                                         ?.let { round1(it * multiplier) },
+                                    sugarGrams = food.sugarGrams?.let { round1(it * multiplier) },
+                                    fiberGrams = food.fiberGrams?.let { round1(it * multiplier) },
+                                    sodiumMg = food.sodiumMg?.let { kotlin.math.round(it * multiplier) },
                                     servingNote = when {
                                         chosenPortion != null ->
                                             "${trimQty(entered)} x ${chosenPortion!!.label}"

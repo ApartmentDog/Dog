@@ -17,3 +17,15 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         )
     }
 }
+
+/** v2 -> v3: extra nutrients and triggers per entry, health conditions on profile. */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE food_log_entry ADD COLUMN saturatedFatGrams REAL")
+        db.execSQL("ALTER TABLE food_log_entry ADD COLUMN sugarGrams REAL")
+        db.execSQL("ALTER TABLE food_log_entry ADD COLUMN fiberGrams REAL")
+        db.execSQL("ALTER TABLE food_log_entry ADD COLUMN sodiumMg REAL")
+        db.execSQL("ALTER TABLE food_log_entry ADD COLUMN triggers TEXT")
+        db.execSQL("ALTER TABLE user_profile ADD COLUMN conditions TEXT NOT NULL DEFAULT ''")
+    }
+}

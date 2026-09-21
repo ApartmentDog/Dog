@@ -119,6 +119,52 @@ fun VerdictDialog(
                 )
             }
 
+            // ---- Condition checks ----
+            if (verdict.warnings.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Hairline()
+                Text(
+                    "CONDITION CHECKS",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    color = AmberFaint,
+                    modifier = Modifier.padding(vertical = 6.dp)
+                )
+                verdict.warnings.forEach { w ->
+                    val c = when (w.severity) {
+                        Verdict.OVER_LIMIT -> AmberWarn
+                        Verdict.CAUTION -> Amber
+                        Verdict.PASS -> AmberFaint
+                    }
+                    Text(
+                        w.condition.label,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = c
+                    )
+                    Text(
+                        w.details.joinToString(", "),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 9.sp,
+                        color = if (w.severity == Verdict.PASS) AmberFaint else AmberDim,
+                        modifier = Modifier.padding(start = 10.dp, bottom = 5.dp)
+                    )
+                }
+            }
+
+            // ---- Extra nutrients, when the source has them ----
+            val extras = listOfNotNull(
+                food.saturatedFatGrams?.let { "SAT FAT" to "${num(it)} g" },
+                food.sugarGrams?.let { "SUGAR" to "${num(it)} g" },
+                food.fiberGrams?.let { "FIBER" to "${num(it)} g" },
+                food.sodiumMg?.let { "SODIUM" to "${it.toInt()} mg" }
+            )
+            if (extras.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                extras.forEach { (label, value) -> StatRow(label, value) }
+            }
+
             Spacer(Modifier.height(10.dp))
             Hairline()
             Text(

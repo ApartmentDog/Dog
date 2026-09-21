@@ -32,6 +32,9 @@ object UsdaFoodSearch {
     private const val N_FAT = "204"
     private const val N_CARBS = "205"
     private const val N_SATFAT = "606"
+    private const val N_SUGAR = "269"
+    private const val N_FIBER = "291"
+    private const val N_SODIUM = "307"
 
     sealed class Result {
         data class Found(val foods: List<ScannedFood>) : Result()
@@ -93,16 +96,17 @@ object UsdaFoodSearch {
 
         val nutrients = f.optJSONArray("foodNutrients") ?: return null
 
-        fun nutrient(number: String): Double {
+        fun nutrientOrNull(number: String): Double? {
             for (i in 0 until nutrients.length()) {
                 val n = nutrients.optJSONObject(i) ?: continue
-                val num = n.optString("nutrientNumber", "")
-                if (num == number) {
-                    return n.optDouble("value", 0.0)
+                if (n.optString("nutrientNumber", "") == number) {
+                    return n.optDouble("value", Double.NaN).takeIf { !it.isNaN() }
                 }
             }
-            return 0.0
+            return null
         }
+
+        fun nutrient(number: String): Double = nutrientOrNull(number) ?: 0.0
 
         // Foundation/SR values are per 100 g. Branded also reports per 100 g
         // alongside a serving size, so scale when we have one.
@@ -130,6 +134,10 @@ object UsdaFoodSearch {
             proteinGrams = round1(nutrient(N_PROTEIN) * factor),
             carbGrams = round1(nutrient(N_CARBS) * factor),
             saturatedFatGrams = round1(nutrient(N_SATFAT) * factor).takeIf { it > 0 },
+            sugarGrams = nutrientOrNull(N_SUGAR)?.let { round1(it * factor) },
+            fiberGrams = nutrientOrNull(N_FIBER)?.let { round1(it * factor) },
+            sodiumMg = nutrientOrNull(N_SODIUM)?.let { (it * factor).roundToInt().toDouble() },
+            ingredients = f.optString("ingredients", "").ifBlank { null },
             servingNote = note,
             basisGrams = if (scalable) null else 100.0,
             servingGrams = servingSize.takeIf { scalable },
