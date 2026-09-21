@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.Condition
 import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
 import com.evyr.rads.data.local.UserProfile
@@ -56,8 +57,9 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
     var rate by remember { mutableStateOf("1.0") }
     var activity by remember { mutableStateOf("moderate") }
     var fatLimit by remember { mutableStateOf("15") }
+    var conditions by remember { mutableStateOf(emptySet<Condition>()) }
 
-    val lastStep = 4
+    val lastStep = 5
 
     Box(
         Modifier
@@ -167,6 +169,40 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
                     Spacer(Modifier.height(6.dp))
                     Field("GRAMS/MEAL", fatLimit, numeric = true) { fatLimit = it }
                 }
+                5 -> {
+                    Prompt("HEALTH CONDITIONS")
+                    Note(
+                        "Optional. Tick any that apply and foods get flagged for them before you log. " +
+                            "General guidance only — your doctor's instructions override these. " +
+                            "You can change this later in SETUP."
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Condition.values().forEach { c ->
+                        val on = c in conditions
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { conditions = if (on) conditions - c else conditions + c }
+                                .background(if (on) RowHighlight else Color.Transparent)
+                                .padding(horizontal = 6.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                (if (on) "[X] " else "[ ] ") + c.label,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                                color = if (on) AmberBright else AmberDim
+                            )
+                            Text(
+                                "watches: " + c.watches,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 8.sp,
+                                color = AmberFaint,
+                                modifier = Modifier.padding(start = 28.dp, top = 2.dp)
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(Modifier.height(18.dp))
@@ -217,6 +253,7 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
                                         activityLevel = activity,
                                         useImperial = imperial,
                                         fatWarnGramsPerMeal = fatLimit.toDoubleOrNull() ?: DEFAULT_FAT_WARN_GRAMS,
+                                        conditions = Condition.toCsv(conditions),
                                         onboarded = true
                                     )
                                 )
