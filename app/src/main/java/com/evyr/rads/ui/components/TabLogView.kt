@@ -81,7 +81,7 @@ fun TabLogView(
     // Which meal cards are expanded. A meal with items in it starts expanded,
     // same behavior as the original PWA (expandedMeals.add on first render).
     val expanded = remember(mealSlots) {
-        mutableStateOf(mealSlots.filter { slot -> dayEntries.any { it.mealSlot == slot } }.toMutableSet())
+        mutableStateOf(mealSlots.filter { slot -> dayEntries.any { it.mealSlot == slot } }.toSet())
     }
 
     val scrollState = rememberScrollState()
