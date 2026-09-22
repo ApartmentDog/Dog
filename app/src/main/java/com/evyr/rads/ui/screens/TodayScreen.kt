@@ -4,19 +4,25 @@ import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
@@ -33,7 +39,10 @@ import com.evyr.rads.ui.components.*
 import java.io.ByteArrayOutputStream
 
 private val MEAL_SLOTS = listOf("breakfast", "lunch", "dinner", "snack")
-private val TABS = listOf("LOG", "STATS", "SYNC", "SETUP")
+
+private enum class AppTab(val label: String) {
+    LOG("Log"), STATS("Stats"), SYNC("Sync"), SETUP("Setup")
+}
 
 @Composable
 fun TodayScreen() {
@@ -78,7 +87,7 @@ fun TodayScreen() {
         return
     }
 
-    var activeTab by remember { mutableStateOf("LOG") }
+    var activeTab by remember { mutableStateOf(AppTab.LOG) }
     // Default to the meal that matches the clock, not whatever comes first.
     var activeMeal by remember { mutableStateOf(vm.mealSlotForNow()) }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -114,19 +123,6 @@ fun TodayScreen() {
     val syncScroll = rememberScrollState()
     val setupScroll = rememberScrollState()
 
-    // The wheel follows whichever tab is actually on screen.
-    val scrollProgress by remember {
-        derivedStateOf {
-            when (activeTab) {
-                "LOG" -> lazyProgress(listState)
-                "STATS" -> linearProgress(statsScroll)
-                "SYNC" -> linearProgress(syncScroll)
-                "SETUP" -> linearProgress(setupScroll)
-                else -> 0f
-            }
-        }
-    }
-
     val mealEntries = entries.filter { it.mealSlot == activeMeal }
     val selectedEntry = entries.firstOrNull { it.id == selectedId }
     val fatLimit = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
@@ -145,37 +141,31 @@ fun TodayScreen() {
             }
     }
 
-    // Activity lamp: lit while anything is actually working.
-    val busy = searching ||
-        syncStatus == TodayViewModel.SyncStatus.SYNCING ||
-        scanState is TodayViewModel.ScanState.Working
-
-    TerminalChrome(
-        scrollProgress = scrollProgress,
-        busy = busy,
-        buttons = listOf(
-            TerminalButtonSpec("LOG", selected = activeTab == "LOG") {
-                if (activeTab == "LOG") {
-                    vm.resetSearch()
-                    showSearch = true
-                } else activeTab = "LOG"
-            },
-            TerminalButtonSpec("SCAN", selected = false) {
-                activeTab = "LOG"
-                showScanPicker = true
-            },
-            TerminalButtonSpec("SYNC", selected = activeTab == "SYNC") {
-                activeTab = "SYNC"
-                vm.sync()
-            },
-        )
-    ) {
-        Column(Modifier.fillMaxWidth()) {
-            TerminalTabBar(TABS, activeTab) { activeTab = it }
-            Hairline()
-
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(onClick = { activeTab = AppTab.LOG; showScanPicker = true }) {
+                Text("+", fontSize = 22.sp)
+            }
+        },
+        bottomBar = {
+            NavigationBar {
+                AppTab.values().forEach { tab ->
+                    NavigationBarItem(
+                        selected = activeTab == tab,
+                        onClick = {
+                            if (tab == AppTab.SYNC) vm.sync()
+                            activeTab = tab
+                        },
+                        icon = {},
+                        label = { Text(tab.label) }
+                    )
+                }
+            }
+        }
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
             when (activeTab) {
-                "LOG" -> TabLogView(
+                AppTab.LOG -> TabLogView(
                     viewDate = viewDate,
                     isToday = isToday,
                     onPreviousDay = { vm.previousDay() },
@@ -194,7 +184,7 @@ fun TodayScreen() {
                     onSelectEntry = { vm.selectEntry(it.id) },
                     onDeleteEntry = { vm.deleteEntry(it) }
                 )
-                "STATS" -> TabStatsView(
+                AppTab.STATS -> TabStatsView(
                     scrollState = statsScroll,
                     isToday = isToday,
                     entries = entries,
@@ -202,7 +192,7 @@ fun TodayScreen() {
                     health = health,
                     mealSlots = MEAL_SLOTS
                 )
-                "SYNC" -> TabSyncView(
+                AppTab.SYNC -> TabSyncView(
                     scrollState = syncScroll,
                     status = syncStatus,
                     availability = healthManager.availability(),
@@ -219,7 +209,7 @@ fun TodayScreen() {
                         runCatching { context.startActivity(healthManager.installIntent()) }
                     }
                 )
-                "SETUP" -> TabSetupView(
+                AppTab.SETUP -> TabSetupView(
                     scrollState = setupScroll,
                     profile = profile,
                     onUpdate = { vm.saveProfile(it) }
@@ -326,22 +316,3 @@ private fun readBytes(context: Context, uri: android.net.Uri): ByteArray? =
         context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
     }.getOrNull()
 
-
-/** Smooth 0..1 position through a lazy list, including partial item offset. */
-private fun lazyProgress(state: LazyListState): Float {
-    val info = state.layoutInfo
-    val total = info.totalItemsCount
-    if (total <= 0) return 0f
-    val first = info.visibleItemsInfo.firstOrNull() ?: return 0f
-    val withinItem =
-        if (first.size > 0) (-first.offset).toFloat() / first.size.toFloat() else 0f
-    return ((state.firstVisibleItemIndex + withinItem) / total.toFloat())
-        .coerceIn(0f, 1f)
-}
-
-/** 0..1 position through a normal scrolling column. */
-private fun linearProgress(state: ScrollState): Float {
-    val max = state.maxValue
-    if (max <= 0) return 0f
-    return (state.value.toFloat() / max.toFloat()).coerceIn(0f, 1f)
-}

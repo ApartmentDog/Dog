@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,11 +24,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -36,7 +35,6 @@ import com.evyr.rads.data.Condition
 import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
 import com.evyr.rads.data.local.UserProfile
-import com.evyr.rads.ui.theme.*
 
 @Composable
 fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
@@ -60,49 +58,56 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
     var conditions by remember { mutableStateOf(emptySet<Condition>()) }
 
     val lastStep = 5
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val dim = onSurface.copy(alpha = 0.6f)
+    val faint = onSurface.copy(alpha = 0.45f)
+    val primary = MaterialTheme.colorScheme.primary
 
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(SandMid, SandDeep)))
-            .padding(14.dp)
+            .background(MaterialTheme.colorScheme.background)
+            .padding(20.dp)
     ) {
         Column(
             Modifier
                 .fillMaxSize()
-                .background(ScreenBlack, RoundedCornerShape(8.dp))
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
                 "R.A.D.S.",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 20.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Amber
+                color = onSurface
             )
             Text(
-                "RATION ASSESSMENT & DIET SYSTEM",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
-                color = AmberDim
+                "Let's get you set up.",
+                fontSize = 14.sp,
+                color = dim
             )
-            Spacer(Modifier.height(4.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(AmberHairline))
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
-            Text(
-                "> SETUP [${step + 1}/${lastStep + 1}]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
-                color = AmberFaint
-            )
-            Spacer(Modifier.height(10.dp))
+            // Step progress bar
+            Row(Modifier.fillMaxWidth()) {
+                for (i in 0..lastStep) {
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(4.dp)
+                            .background(
+                                if (i <= step) primary else MaterialTheme.colorScheme.outline,
+                                RoundedCornerShape(2.dp)
+                            )
+                    )
+                    if (i != lastStep) Spacer(Modifier.width(4.dp))
+                }
+            }
+            Spacer(Modifier.height(20.dp))
 
             when (step) {
                 0 -> {
-                    Prompt("UNITS")
-                    Choices("MEASUREMENT", listOf("imperial", "metric"),
+                    Prompt("Units")
+                    Choices("Measurement", listOf("imperial", "metric"),
                         if (imperial) "imperial" else "metric") {
                         imperial = it == "imperial"
                     }
@@ -112,40 +117,44 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
                     )
                 }
                 1 -> {
-                    Prompt("OPERATOR")
-                    Field("NAME", name) { name = it }
-                    Field("AGE", age, numeric = true) { age = it }
-                    Choices("SEX", listOf("male", "female", "unspecified"), sex) { sex = it }
+                    Prompt("First, a little about you")
+                    Note("Just a few things so we can build a calorie goal that fits your life.")
+                    Spacer(Modifier.height(10.dp))
+                    Field("Name", name) { name = it }
+                    Field("Age", age, numeric = true) { age = it }
+                    Choices("Sex", listOf("male", "female", "unspecified"), sex) { sex = it }
                 }
                 2 -> {
-                    Prompt("BODY")
+                    Prompt("Body")
                     if (imperial) {
                         Row(Modifier.fillMaxWidth()) {
                             Box(Modifier.weight(1f)) {
-                                Field("HEIGHT ft", feet, numeric = true) { feet = it }
+                                Field("Height ft", feet, numeric = true) { feet = it }
                             }
                             Spacer(Modifier.width(8.dp))
                             Box(Modifier.weight(1f)) {
                                 Field("in", inches, numeric = true) { inches = it }
                             }
                         }
-                        Field("WEIGHT lb", weightText, numeric = true) { weightText = it }
+                        Field("Weight lb", weightText, numeric = true) { weightText = it }
                     } else {
-                        Field("HEIGHT cm", heightCmText, numeric = true) { heightCmText = it }
-                        Field("WEIGHT kg", weightText, numeric = true) { weightText = it }
+                        Field("Height cm", heightCmText, numeric = true) { heightCmText = it }
+                        Field("Weight kg", weightText, numeric = true) { weightText = it }
                     }
                 }
                 3 -> {
-                    Prompt("OBJECTIVE")
-                    Choices("GOAL", listOf("lose", "maintain", "gain"), goal) { goal = it }
+                    Prompt("What's your goal?")
+                    Note("There's no wrong answer. Slower tends to stick — but you know you best.")
+                    Spacer(Modifier.height(10.dp))
+                    Choices("Goal", listOf("lose", "maintain", "gain"), goal) { goal = it }
                     if (goal != "maintain") {
                         Field(
-                            "TARGET ${if (imperial) "lb" else "kg"}",
+                            "Target ${if (imperial) "lb" else "kg"}",
                             goalWeightText,
                             numeric = true
                         ) { goalWeightText = it }
                         Choices(
-                            "RATE (lb/week)",
+                            "Rate (lb/week)",
                             listOf("0.5", "1.0", "1.5", "2.0"),
                             rate
                         ) { rate = it }
@@ -158,71 +167,71 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
                         )
                     }
                     Choices(
-                        "ACTIVITY",
+                        "Activity",
                         listOf("sedentary", "light", "moderate", "active", "very_active"),
                         activity
                     ) { activity = it }
                 }
                 4 -> {
-                    Prompt("FAT CEILING")
+                    Prompt("Fat ceiling")
                     Note("Maximum fat grams in any single meal. Checked per meal, never as a daily total.")
-                    Spacer(Modifier.height(6.dp))
-                    Field("GRAMS/MEAL", fatLimit, numeric = true) { fatLimit = it }
+                    Spacer(Modifier.height(8.dp))
+                    Field("Grams / meal", fatLimit, numeric = true) { fatLimit = it }
                 }
                 5 -> {
-                    Prompt("HEALTH CONDITIONS")
+                    Prompt("Health conditions")
                     Note(
                         "Optional. Tick any that apply and foods get flagged for them before you log. " +
                             "General guidance only — your doctor's instructions override these. " +
-                            "You can change this later in SETUP."
+                            "You can change this later in Setup."
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     Condition.values().forEach { c ->
                         val on = c in conditions
                         Column(
                             Modifier
                                 .fillMaxWidth()
                                 .clickable { conditions = if (on) conditions - c else conditions + c }
-                                .background(if (on) RowHighlight else Color.Transparent)
-                                .padding(horizontal = 6.dp, vertical = 6.dp)
+                                .background(
+                                    if (on) primary.copy(alpha = 0.12f) else Color.Transparent,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 8.dp)
                         ) {
                             Text(
-                                (if (on) "[X] " else "[ ] ") + c.label,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
+                                c.label,
+                                fontSize = 14.sp,
                                 fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-                                color = if (on) AmberBright else AmberDim
+                                color = if (on) primary else onSurface
                             )
                             Text(
-                                "watches: " + c.watches,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 8.sp,
-                                color = AmberFaint,
-                                modifier = Modifier.padding(start = 28.dp, top = 2.dp)
+                                "Watches: " + c.watches,
+                                fontSize = 12.sp,
+                                color = faint,
+                                modifier = Modifier.padding(top = 2.dp)
                             )
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(22.dp))
             Row(Modifier.fillMaxWidth()) {
                 if (step > 0) {
                     Text(
-                        "[BACK]",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = AmberDim,
+                        "Back",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = dim,
                         modifier = Modifier.clickable { step-- }.padding(8.dp)
                     )
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(Modifier.width(18.dp))
                 }
                 Text(
-                    if (step < lastStep) "[NEXT]" else "[INITIALIZE]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
+                    if (step < lastStep) "Next" else "Get started",
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = AmberBright,
+                    color = primary,
                     modifier = Modifier
                         .clickable {
                             if (step < lastStep) {
@@ -270,11 +279,10 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
 private fun Prompt(text: String) {
     Text(
         text,
-        fontFamily = FontFamily.Monospace,
-        fontSize = 13.sp,
+        fontSize = 19.sp,
         fontWeight = FontWeight.Bold,
-        color = Amber,
-        modifier = Modifier.padding(bottom = 8.dp)
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(bottom = 10.dp)
     )
 }
 
@@ -282,10 +290,9 @@ private fun Prompt(text: String) {
 private fun Note(text: String) {
     Text(
         text,
-        fontFamily = FontFamily.Monospace,
-        fontSize = 9.sp,
-        color = AmberFaint,
-        modifier = Modifier.padding(top = 4.dp)
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
     )
 }
 
@@ -296,13 +303,12 @@ private fun Field(
     numeric: Boolean = false,
     onChange: (String) -> Unit
 ) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Text(
             label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 10.sp,
-            color = AmberDim,
-            modifier = Modifier.width(92.dp).padding(top = 5.dp)
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.width(96.dp).padding(top = 8.dp)
         )
         BasicTextField(
             value = value,
@@ -312,15 +318,14 @@ private fun Field(
                 KeyboardOptions(keyboardType = KeyboardType.Number)
             } else KeyboardOptions.Default,
             textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                color = Amber
+                fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.onSurface
             ),
-            cursorBrush = SolidColor(Amber),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = Modifier
                 .fillMaxWidth()
-                .background(ScreenInk, RoundedCornerShape(2.dp))
-                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 9.dp)
         )
     }
 }
@@ -332,22 +337,26 @@ private fun Choices(
     selected: String,
     onSelect: (String) -> Unit
 ) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-        Text(label, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = AmberDim)
-        Spacer(Modifier.height(3.dp))
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val primary = MaterialTheme.colorScheme.primary
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(label, fontSize = 12.sp, color = onSurface.copy(alpha = 0.6f))
+        Spacer(Modifier.height(5.dp))
         options.forEach { opt ->
             val isSel = opt == selected
             Text(
-                text = (if (isSel) "> " else "  ") + opt.replace('_', ' ').uppercase(),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                text = opt.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                fontSize = 14.sp,
                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSel) AmberBright else AmberFaint,
+                color = if (isSel) primary else onSurface.copy(alpha = 0.55f),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onSelect(opt) }
-                    .background(if (isSel) RowHighlight else Color.Transparent)
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                    .background(
+                        if (isSel) primary.copy(alpha = 0.12f) else Color.Transparent,
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
             )
         }
     }

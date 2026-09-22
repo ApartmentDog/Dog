@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,10 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -37,9 +36,6 @@ import androidx.compose.ui.window.Dialog
 import com.evyr.rads.data.ScannedFood
 import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.VerdictResult
-import com.evyr.rads.ui.theme.*
-
-private val PassGreen = Color(0xFF5FD35F)
 
 @Composable
 fun VerdictDialog(
@@ -55,55 +51,59 @@ fun VerdictDialog(
     var protein by remember { mutableStateOf(num(food.proteinGrams)) }
     var carbs by remember { mutableStateOf(num(food.carbGrams)) }
 
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val dim = onSurface.copy(alpha = 0.6f)
+    val faint = onSurface.copy(alpha = 0.45f)
+    val primary = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.secondary
+    val error = MaterialTheme.colorScheme.error
+
     val stampColor = when (verdict.verdict) {
-        Verdict.PASS -> PassGreen
-        Verdict.CAUTION -> Amber
-        Verdict.OVER_LIMIT -> AmberWarn
+        Verdict.PASS -> secondary
+        Verdict.CAUTION -> primary
+        Verdict.OVER_LIMIT -> error
     }
     val stampText = when (verdict.verdict) {
-        Verdict.PASS -> "PASS"
-        Verdict.CAUTION -> "CAUTION"
-        Verdict.OVER_LIMIT -> "OVER LIMIT"
+        Verdict.PASS -> "Looks fine"
+        Verdict.CAUTION -> "Use caution"
+        Verdict.OVER_LIMIT -> "Over your limit"
     }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(ScreenBlack, RoundedCornerShape(8.dp))
-                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                .padding(20.dp)
                 .heightIn(max = 560.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
-                "> ASSESSMENT / ${mealSlot.uppercase()}",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
-                color = AmberFaint
+                "Assessment — ${mealSlot.replaceFirstChar { it.uppercase() }}",
+                fontSize = 12.sp,
+                color = dim
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             // The stamp
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(3.dp, stampColor, RoundedCornerShape(4.dp))
-                    .padding(vertical = 12.dp),
+                    .border(2.dp, stampColor, RoundedCornerShape(12.dp))
+                    .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     stampText,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 24.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = stampColor
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 verdict.headline,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = stampColor
             )
@@ -111,44 +111,40 @@ fun VerdictDialog(
             Spacer(Modifier.height(8.dp))
             verdict.reasons.forEach { r ->
                 Text(
-                    "- $r",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
-                    color = AmberDim,
+                    "• $r",
+                    fontSize = 12.sp,
+                    color = dim,
                     modifier = Modifier.padding(vertical = 1.dp)
                 )
             }
 
             // ---- Condition checks ----
             if (verdict.warnings.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Hairline()
                 Text(
-                    "CONDITION CHECKS",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
-                    color = AmberFaint,
-                    modifier = Modifier.padding(vertical = 6.dp)
+                    "Condition checks",
+                    fontSize = 12.sp,
+                    color = dim,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
                 verdict.warnings.forEach { w ->
                     val c = when (w.severity) {
-                        Verdict.OVER_LIMIT -> AmberWarn
-                        Verdict.CAUTION -> Amber
-                        Verdict.PASS -> AmberFaint
+                        Verdict.OVER_LIMIT -> error
+                        Verdict.CAUTION -> primary
+                        Verdict.PASS -> faint
                     }
                     Text(
                         w.condition.label,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = c
                     )
                     Text(
                         w.details.joinToString(", "),
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 9.sp,
-                        color = if (w.severity == Verdict.PASS) AmberFaint else AmberDim,
-                        modifier = Modifier.padding(start = 10.dp, bottom = 5.dp)
+                        fontSize = 12.sp,
+                        color = if (w.severity == Verdict.PASS) faint else dim,
+                        modifier = Modifier.padding(start = 10.dp, bottom = 6.dp)
                     )
                 }
             }
@@ -156,67 +152,63 @@ fun VerdictDialog(
             if (verdict.skipped.isNotEmpty()) {
                 Text(
                     "Not checked (no data): " + verdict.skipped.joinToString(", "),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 8.sp,
-                    color = AmberFaint,
+                    fontSize = 11.sp,
+                    color = faint,
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
 
             // ---- Extra nutrients, when the source has them ----
             val extras = listOfNotNull(
-                food.saturatedFatGrams?.let { "SAT FAT" to "${num(it)} g" },
-                food.sugarGrams?.let { "SUGAR" to "${num(it)} g" },
-                food.fiberGrams?.let { "FIBER" to "${num(it)} g" },
-                food.sodiumMg?.let { "SODIUM" to "${it.toInt()} mg" }
+                food.saturatedFatGrams?.let { "Sat fat" to "${num(it)} g" },
+                food.sugarGrams?.let { "Sugar" to "${num(it)} g" },
+                food.fiberGrams?.let { "Fiber" to "${num(it)} g" },
+                food.sodiumMg?.let { "Sodium" to "${it.toInt()} mg" }
             )
             if (extras.isNotEmpty()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 extras.forEach { (label, value) -> StatRow(label, value) }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Hairline()
             Text(
-                "ADJUST BEFORE LOGGING",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
-                color = AmberFaint,
-                modifier = Modifier.padding(vertical = 6.dp)
+                "Adjust before logging",
+                fontSize = 12.sp,
+                color = dim,
+                modifier = Modifier.padding(vertical = 8.dp)
             )
 
-            EditRow("NAME", name) { name = it }
-            EditRow("CAL", calories, numeric = true) { calories = it }
-            EditRow("FAT g", fat, numeric = true) { fat = it }
-            EditRow("PROTEIN g", protein, numeric = true) { protein = it }
-            EditRow("CARBS g", carbs, numeric = true) { carbs = it }
+            EditRow("Name", name) { name = it }
+            EditRow("Calories", calories, numeric = true) { calories = it }
+            EditRow("Fat g", fat, numeric = true) { fat = it }
+            EditRow("Protein g", protein, numeric = true) { protein = it }
+            EditRow("Carbs g", carbs, numeric = true) { carbs = it }
 
             food.barcode?.let {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "BARCODE $it",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 8.sp,
-                    color = AmberFaint
+                    "Barcode $it",
+                    fontSize = 11.sp,
+                    color = faint
                 )
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
                 Text(
-                    "[DISCARD]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    color = AmberDim,
+                    "Discard",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = dim,
                     modifier = Modifier.clickable { onDismiss() }.padding(6.dp)
                 )
-                Spacer(Modifier.width(20.dp))
+                Spacer(Modifier.width(24.dp))
                 Text(
-                    if (verdict.verdict == Verdict.OVER_LIMIT) "[LOG ANYWAY]" else "[LOG IT]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    if (verdict.verdict == Verdict.OVER_LIMIT) "Log anyway" else "Log it",
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (verdict.verdict == Verdict.OVER_LIMIT) AmberWarn else AmberBright,
+                    color = if (verdict.verdict == Verdict.OVER_LIMIT) error else primary,
                     modifier = Modifier
                         .clickable {
                             onConfirm(
@@ -243,13 +235,12 @@ private fun EditRow(
     numeric: Boolean = false,
     onChange: (String) -> Unit
 ) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(
             label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
-            color = AmberDim,
-            modifier = Modifier.width(80.dp).padding(top = 5.dp)
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.width(88.dp).padding(top = 7.dp)
         )
         BasicTextField(
             value = value,
@@ -259,18 +250,18 @@ private fun EditRow(
                 KeyboardOptions(keyboardType = KeyboardType.Number)
             else KeyboardOptions.Default,
             textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = Amber
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface
             ),
-            cursorBrush = SolidColor(Amber),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = Modifier
                 .fillMaxWidth()
-                .background(ScreenInk, RoundedCornerShape(2.dp))
-                .padding(horizontal = 6.dp, vertical = 5.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp)
         )
     }
 }
 
 private fun num(v: Double): String =
     if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.1f", v)
+

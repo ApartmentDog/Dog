@@ -15,15 +15,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -34,7 +35,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.evyr.rads.BuildConfig
-import com.evyr.rads.data.AppPrefs
 import com.evyr.rads.data.Condition
 import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.Units
@@ -171,10 +171,9 @@ fun TabSetupView(
     val d = draft
     if (profile == null || d == null) {
         Text(
-            "LOADING PROFILE...",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
-            color = AmberDim
+            "Loading your profile...",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
         return
     }
@@ -205,28 +204,28 @@ fun TabSetupView(
 
         SaveBar(dirty = dirty, justSaved = justSaved, error = error, onSave = { save() })
 
-        SectionLabel("UNITS")
-        ChoiceRow("MEASUREMENT", listOf("imperial", "metric"),
+        SectionLabel("Units")
+        ChoiceRow("Measurement", listOf("imperial", "metric"),
             if (imp) "imperial" else "metric") { choice ->
             edit { it.withUnits(choice == "imperial") }
         }
 
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel("OPERATOR")
-        EditField("NAME", d.name) { v -> edit { it.copy(name = v) } }
-        EditNumber("AGE", d.age) { v -> edit { it.copy(age = v) } }
-        ChoiceRow("SEX", listOf("male", "female", "unspecified"), d.sex) { v ->
+        SectionLabel("About you")
+        EditField("Name", d.name) { v -> edit { it.copy(name = v) } }
+        EditNumber("Age", d.age) { v -> edit { it.copy(age = v) } }
+        ChoiceRow("Sex", listOf("male", "female", "unspecified"), d.sex) { v ->
             edit { it.copy(sex = v) }
         }
 
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel("BODY")
+        SectionLabel("Body")
         if (imp) {
             Row(Modifier.fillMaxWidth()) {
                 Box(Modifier.weight(1f)) {
-                    EditNumber("HEIGHT ft", d.feet) { v -> edit { it.copy(feet = v) } }
+                    EditNumber("Height ft", d.feet) { v -> edit { it.copy(feet = v) } }
                 }
                 Spacer(Modifier.width(6.dp))
                 Box(Modifier.weight(1f)) {
@@ -234,55 +233,53 @@ fun TabSetupView(
                 }
             }
         } else {
-            EditNumber("HEIGHT cm", d.heightCm) { v -> edit { it.copy(heightCm = v) } }
+            EditNumber("Height cm", d.heightCm) { v -> edit { it.copy(heightCm = v) } }
         }
-        EditNumber("WEIGHT $wLabel", d.weight) { v -> edit { it.copy(weight = v) } }
+        EditNumber("Weight $wLabel", d.weight) { v -> edit { it.copy(weight = v) } }
 
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel("OBJECTIVE")
-        ChoiceRow("GOAL", listOf("lose", "maintain", "gain"), d.goal) { v ->
+        SectionLabel("Goal")
+        ChoiceRow("Goal", listOf("lose", "maintain", "gain"), d.goal) { v ->
             edit { it.copy(goal = v) }
         }
         if (d.goal != "maintain") {
-            EditNumber("TARGET $wLabel", d.goalWeight) { v -> edit { it.copy(goalWeight = v) } }
-            ChoiceRow("RATE lb/wk", listOf("0.5", "1", "1.5", "2"), d.rate) { v ->
+            EditNumber("Target $wLabel", d.goalWeight) { v -> edit { it.copy(goalWeight = v) } }
+            ChoiceRow("Rate lb/wk", listOf("0.5", "1", "1.5", "2"), d.rate) { v ->
                 edit { it.copy(rate = v) }
             }
             preview.poundsToGoal()?.let { lbs ->
-                StatRow("TO GOAL", "${trim(kotlin.math.abs(lbs))} lb")
+                StatRow("To goal", "${trim(kotlin.math.abs(lbs))} lb")
             }
             preview.weeksToGoal()?.let { wk ->
-                StatRow("ETA", if (wk == 0) "AT GOAL" else "$wk weeks")
+                StatRow("ETA", if (wk == 0) "At goal" else "$wk weeks")
             }
         }
         ChoiceRow(
-            "ACTIVITY",
+            "Activity",
             listOf("sedentary", "light", "moderate", "active", "very_active"),
             d.activity
         ) { v -> edit { it.copy(activity = v) } }
 
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel("FAT LIMIT (PER MEAL)")
+        SectionLabel("Fat limit (per meal)")
         Text(
-            "Applied to each meal separately. Not a daily budget.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
-            color = AmberFaint,
+            "Applied to each meal separately, not a daily budget.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(bottom = 4.dp)
         )
-        EditNumber("GRAMS", d.fatLimit) { v -> edit { it.copy(fatLimit = v) } }
+        EditNumber("Grams", d.fatLimit) { v -> edit { it.copy(fatLimit = v) } }
 
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel("HEALTH CONDITIONS")
+        SectionLabel("Health conditions")
         Text(
             "Tick any that apply. Foods get flagged for them before you log. " +
-                "General guidance only — your doctor's instructions override these.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
-            color = AmberFaint,
+                "General guidance only -- your doctor's instructions override these.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(bottom = 6.dp)
         )
         Condition.values().forEach { c ->
@@ -290,101 +287,90 @@ fun TabSetupView(
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
                     .clickable {
                         edit {
                             it.copy(conditions = if (on) it.conditions - c else it.conditions + c)
                         }
                     }
-                    .background(if (on) RowHighlight else Color.Transparent)
-                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                    .background(if (on) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
             ) {
                 Text(
-                    (if (on) "[X] " else "[ ] ") + c.label,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    c.label,
+                    fontSize = 14.sp,
                     fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-                    color = if (on) AmberBright else AmberDim
+                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    "watches: " + c.watches,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 8.sp,
-                    color = AmberFaint,
-                    modifier = Modifier.padding(start = 28.dp, top = 2.dp)
+                    "Watches: " + c.watches,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
 
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel(if (dirty) "COMPUTED (UNSAVED)" else "COMPUTED")
+        SectionLabel(if (dirty) "Computed (unsaved)" else "Computed")
         StatRow("BMR", preview.bmr().toInt().toString())
         StatRow("TDEE", preview.tdee().toInt().toString())
         StatRow(
-            "ADJUST",
+            "Adjust",
             preview.dailyAdjustment().let { if (it >= 0) "+$it" else "$it" } + " kcal"
         )
-        StatRow("TARGET", "${preview.calorieTarget()} kcal", emphasize = true)
+        StatRow("Target", "${preview.calorieTarget()} kcal", emphasize = true)
 
         SaveBar(dirty = dirty, justSaved = justSaved, error = error, onSave = { save() })
 
         // ---- Device settings: these save immediately, they aren't profile data ----
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel("INTERFACE")
         val bootCtx = LocalContext.current
-        var bootOn by remember { mutableStateOf(AppPrefs.bootSequenceEnabled(bootCtx)) }
-        ChoiceRow("BOOT SEQUENCE", listOf("on", "off"), if (bootOn) "on" else "off") {
-            bootOn = it == "on"
-            AppPrefs.setBootSequenceEnabled(bootCtx, bootOn)
-        }
 
-        Spacer(Modifier.height(4.dp))
-        Hairline()
-        SectionLabel("FOOD DATABASE")
+        SectionLabel("Food database")
         Text(
             "USDA key. Blank uses a shared demo key that rate limits quickly. Saves as you type.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
-            color = AmberFaint,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(bottom = 4.dp)
         )
         var usdaKey by remember { mutableStateOf(SecureStore.usdaKey(bootCtx)) }
-        EditField("USDA KEY", usdaKey) {
+        EditField("USDA key", usdaKey) {
             usdaKey = it
             SecureStore.setUsdaKey(bootCtx, it)
         }
-        StatRow("DB KEY", if (usdaKey.isNotBlank()) "SET" else "DEMO (limited)")
+        StatRow("DB key", if (usdaKey.isNotBlank()) "Set" else "Demo (limited)")
 
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel("AI FOOD DETECTION")
+        SectionLabel("AI food detection")
         Text(
             "Gemini key for photo and fallback estimates. Saves as you type.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
-            color = AmberFaint,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(bottom = 4.dp)
         )
         var apiKey by remember { mutableStateOf(SecureStore.geminiKey(bootCtx)) }
         var model by remember { mutableStateOf(SecureStore.geminiModel(bootCtx)) }
-        EditField("API KEY", apiKey) {
+        EditField("API key", apiKey) {
             apiKey = it
             SecureStore.setGeminiKey(bootCtx, it)
         }
-        EditField("MODEL", model) {
+        EditField("Model", model) {
             model = it
             SecureStore.setGeminiModel(bootCtx, it)
         }
-        StatRow("AI STATUS", if (apiKey.isNotBlank()) "ENABLED" else "OFF")
+        StatRow("AI status", if (apiKey.isNotBlank()) "Enabled" else "Off")
 
         Spacer(Modifier.height(4.dp))
         Hairline()
-        SectionLabel("SYSTEM")
-        StatRow("VERSION", BuildConfig.VERSION_NAME, emphasize = true)
-        StatRow("BUILD", BuildConfig.VERSION_CODE.toString())
-        StatRow("PACKAGE", BuildConfig.APPLICATION_ID)
-        StatRow("AI MODEL", SecureStore.geminiModel(bootCtx))
+        SectionLabel("About")
+        StatRow("Version", BuildConfig.VERSION_NAME, emphasize = true)
+        StatRow("Build", BuildConfig.VERSION_CODE.toString())
+        StatRow("Package", BuildConfig.APPLICATION_ID)
+        StatRow("AI model", SecureStore.geminiModel(bootCtx))
 
         Spacer(Modifier.height(12.dp))
     }
@@ -403,30 +389,29 @@ private fun SaveBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            "[SAVE PROFILE]",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
+            "Save profile",
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = if (dirty) AmberBright else AmberFaint,
+            color = if (dirty) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
             modifier = Modifier
-                .background(if (dirty) RowHighlight else Color.Transparent)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (dirty) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
                 .clickable(enabled = dirty) { onSave() }
-                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .padding(horizontal = 10.dp, vertical = 8.dp)
         )
         Spacer(Modifier.width(12.dp))
         Text(
             when {
                 error != null -> error
-                dirty -> "UNSAVED CHANGES"
-                justSaved -> "SAVED"
-                else -> "UP TO DATE"
+                dirty -> "Unsaved changes"
+                justSaved -> "Saved"
+                else -> "Up to date"
             },
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
+            fontSize = 12.sp,
             color = when {
-                error != null -> AmberWarn
-                dirty -> Amber
-                else -> AmberFaint
+                error != null -> MaterialTheme.colorScheme.error
+                dirty -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             }
         )
     }
@@ -440,15 +425,14 @@ private fun EditField(label: String, value: String, onChange: (String) -> Unit) 
             onValueChange = onChange,
             singleLine = true,
             textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = Amber
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface
             ),
-            cursorBrush = SolidColor(Amber),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = Modifier
                 .fillMaxWidth()
-                .background(ScreenInk, RoundedCornerShape(2.dp))
-                .padding(horizontal = 6.dp, vertical = 5.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp)
         )
     }
 }
@@ -462,28 +446,26 @@ private fun EditNumber(label: String, value: String, onChange: (String) -> Unit)
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = Amber
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface
             ),
-            cursorBrush = SolidColor(Amber),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = Modifier
                 .fillMaxWidth()
-                .background(ScreenInk, RoundedCornerShape(2.dp))
-                .padding(horizontal = 6.dp, vertical = 5.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp)
         )
     }
 }
 
 @Composable
 private fun FieldShell(label: String, content: @Composable () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Text(
             label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
-            color = AmberDim,
-            modifier = Modifier.width(88.dp).padding(top = 5.dp)
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.width(96.dp).padding(top = 7.dp)
         )
         Column(Modifier.weight(1f)) { content() }
     }
@@ -496,23 +478,23 @@ private fun ChoiceRow(
     selected: String,
     onSelect: (String) -> Unit
 ) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(label, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = AmberDim)
-        Row(Modifier.fillMaxWidth().padding(top = 3.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
             options.forEach { opt ->
                 val isSel = opt == selected
                 Text(
-                    text = opt.replace('_', ' ').uppercase(),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
+                    text = opt.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                    fontSize = 12.sp,
                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSel) AmberBright else AmberFaint,
+                    color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                     modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable { onSelect(opt) }
-                        .background(if (isSel) RowHighlight else Color.Transparent)
-                        .padding(horizontal = 5.dp, vertical = 3.dp)
+                        .background(if (isSel) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                        .padding(horizontal = 8.dp, vertical = 5.dp)
                 )
-                Spacer(Modifier.width(3.dp))
+                Spacer(Modifier.width(4.dp))
             }
         }
     }

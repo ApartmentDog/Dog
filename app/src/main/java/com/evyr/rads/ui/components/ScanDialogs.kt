@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,7 +22,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.evyr.rads.data.ScannedFood
-import com.evyr.rads.ui.theme.*
 
 @Composable
 fun ScanSourceDialog(
@@ -47,43 +46,42 @@ fun ScanSourceDialog(
         Column(
             Modifier
                 .fillMaxWidth()
-                .background(ScreenBlack, RoundedCornerShape(8.dp))
-                .padding(18.dp)
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                .padding(20.dp)
         ) {
             Text(
-                "> IDENTIFY ITEM / ${mealSlot.uppercase()}",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "Log to ${mealSlot.replaceFirstChar { it.uppercase() }}",
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Amber
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
-            Option("SEARCH DATABASE", "USDA + Open Food Facts.", onSearch)
-            Option("SCAN BARCODE", "Packaged food. Works offline.", onBarcode)
-            Option("TYPE BARCODE", "Enter the digits by hand.", onTypeBarcode)
+            Option("Search database", "USDA + Open Food Facts.", onSearch)
+            Option("Scan barcode", "Packaged food. Works offline.", onBarcode)
+            Option("Type barcode", "Enter the digits by hand.", onTypeBarcode)
             Option(
-                "PHOTO — CAMERA",
+                "Photo — camera",
                 if (aiEnabled) "Plate or menu. Uses AI estimate."
-                else "Needs a Gemini key in SETUP.",
+                else "Needs a Gemini key in Setup.",
                 onCameraPhoto,
                 enabled = aiEnabled
             )
             Option(
-                "PHOTO — GALLERY",
+                "Photo — gallery",
                 if (aiEnabled) "Pick an existing photo."
-                else "Needs a Gemini key in SETUP.",
+                else "Needs a Gemini key in Setup.",
                 onGalleryPhoto,
                 enabled = aiEnabled
             )
-            Option("ENTER MANUALLY", "Type the numbers yourself.", onManual)
+            Option("Enter manually", "Type the numbers yourself.", onManual)
 
             Spacer(Modifier.height(10.dp))
             Text(
-                "[CANCEL]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = AmberDim,
+                "Cancel",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.clickable { onDismiss() }.padding(6.dp)
             )
         }
@@ -97,25 +95,24 @@ private fun Option(
     onClick: () -> Unit,
     enabled: Boolean = true
 ) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
     Column(
         Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 8.dp)
+            .padding(vertical = 10.dp)
     ) {
         Text(
-            "> $title",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
+            title,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = if (enabled) AmberBright else AmberFaint
+            color = if (enabled) onSurface else onSurface.copy(alpha = 0.4f)
         )
         Text(
             subtitle,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
-            color = AmberFaint,
-            modifier = Modifier.padding(start = 12.dp, top = 2.dp)
+            fontSize = 12.sp,
+            color = onSurface.copy(alpha = 0.55f),
+            modifier = Modifier.padding(top = 2.dp)
         )
     }
 }
@@ -127,19 +124,19 @@ fun ScanResultPicker(
     onPick: (ScannedFood) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .background(ScreenBlack, RoundedCornerShape(8.dp))
-                .padding(18.dp)
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                .padding(20.dp)
         ) {
             Text(
-                "> ${foods.size} ITEMS DETECTED",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "${foods.size} items detected",
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Amber
+                color = onSurface
             )
             Spacer(Modifier.height(10.dp))
 
@@ -148,22 +145,19 @@ fun ScanResultPicker(
                     Modifier
                         .fillMaxWidth()
                         .clickable { onPick(f) }
-                        .padding(vertical = 7.dp)
+                        .padding(vertical = 9.dp)
                 ) {
                     Column(Modifier.fillMaxWidth()) {
                         Text(
-                            "> ${f.name}",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            color = AmberBright
+                            f.name,
+                            fontSize = 14.sp,
+                            color = onSurface
                         )
                         Text(
                             "${f.calories} kcal / ${f.fatGrams}g fat" +
-                                (f.confidence?.let { "  [$it]" } ?: ""),
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 9.sp,
-                            color = AmberFaint,
-                            modifier = Modifier.padding(start = 12.dp)
+                                (f.confidence?.let { "  ($it)" } ?: ""),
+                            fontSize = 12.sp,
+                            color = onSurface.copy(alpha = 0.55f)
                         )
                     }
                 }
@@ -172,10 +166,10 @@ fun ScanResultPicker(
 
             Spacer(Modifier.height(10.dp))
             Text(
-                "[CANCEL]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = AmberDim,
+                "Cancel",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.clickable { onDismiss() }.padding(6.dp)
             )
         }
@@ -188,21 +182,20 @@ fun ScanStatusDialog(message: String, onDismiss: () -> Unit) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .background(ScreenBlack, RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
                 .padding(20.dp)
         ) {
             Text(
                 message,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = Amber
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
             Text(
-                "[CLOSE]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = AmberDim,
+                "Close",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
             )
         }
@@ -218,27 +211,27 @@ fun BarcodeEntryDialog(
 ) {
     var code by remember { mutableStateOf("") }
     val valid = code.trim().length in 6..14 && code.trim().all { it.isDigit() }
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val primary = MaterialTheme.colorScheme.primary
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .background(ScreenBlack, RoundedCornerShape(8.dp))
-                .padding(18.dp)
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                .padding(20.dp)
         ) {
             Text(
-                "> ENTER BARCODE",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "Enter barcode",
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Amber
+                color = onSurface
             )
             Text(
                 "The digits printed under the bars. UPC-A is 12, EAN-13 is 13.",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 8.sp,
-                color = AmberFaint,
-                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+                fontSize = 11.sp,
+                color = onSurface.copy(alpha = 0.55f),
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
             )
 
             BasicTextField(
@@ -250,42 +243,39 @@ fun BarcodeEntryDialog(
                     imeAction = ImeAction.Done
                 ),
                 textStyle = TextStyle(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
                     letterSpacing = 2.sp,
-                    color = Amber
+                    color = onSurface
                 ),
-                cursorBrush = SolidColor(Amber),
+                cursorBrush = SolidColor(primary),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(ScreenInk, RoundedCornerShape(2.dp))
-                    .padding(horizontal = 10.dp, vertical = 10.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
             )
 
             Text(
-                "${code.length} DIGITS",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 8.sp,
-                color = if (valid) AmberBright else AmberFaint,
+                "${code.length} digits",
+                fontSize = 11.sp,
+                color = if (valid) primary else onSurface.copy(alpha = 0.45f),
                 modifier = Modifier.padding(top = 4.dp)
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth()) {
                 Text(
-                    "[CANCEL]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    color = AmberDim,
+                    "Cancel",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
                 )
-                Spacer(Modifier.width(20.dp))
+                Spacer(Modifier.width(24.dp))
                 Text(
-                    "[LOOK UP]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    "Look up",
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (valid) AmberBright else AmberFaint,
+                    color = if (valid) primary else onSurface.copy(alpha = 0.35f),
                     modifier = Modifier
                         .clickable(enabled = valid) { onSubmit(code.trim()) }
                         .padding(4.dp)
@@ -294,3 +284,4 @@ fun BarcodeEntryDialog(
         }
     }
 }
+

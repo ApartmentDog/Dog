@@ -13,13 +13,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,7 +31,6 @@ import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.local.FoodLogEntry
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import com.evyr.rads.ui.theme.*
 
 @Composable
 fun TabLogView(
@@ -60,6 +61,12 @@ fun TabLogView(
         }
     }
 
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val dim = onSurface.copy(alpha = 0.6f)
+    val faint = onSurface.copy(alpha = 0.4f)
+    val primary = MaterialTheme.colorScheme.primary
+    val error = MaterialTheme.colorScheme.error
+
     Column(Modifier.fillMaxWidth()) {
 
         // ---- Whole-day totals ----
@@ -74,38 +81,33 @@ fun TabLogView(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "[<]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = AmberDim,
+                "‹",
+                fontSize = 16.sp,
+                color = dim,
                 modifier = Modifier
                     .clickable { onPreviousDay() }
-                    .padding(end = 8.dp, top = 2.dp, bottom = 2.dp)
+                    .padding(end = 10.dp, top = 2.dp, bottom = 2.dp)
             )
             Text(
-                if (isToday) "TODAY"
-                else viewDate.format(DateTimeFormatter.ofPattern("EEE d MMM"))
-                    .uppercase(),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
+                if (isToday) "Today"
+                else viewDate.format(DateTimeFormatter.ofPattern("EEE d MMM")),
+                fontSize = 13.sp,
                 fontWeight = if (isToday) FontWeight.Normal else FontWeight.Bold,
-                color = if (isToday) AmberFaint else AmberBright
+                color = if (isToday) faint else primary
             )
             Text(
-                "[>]",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = if (isToday) Color(0x33FFB000) else AmberDim,
+                "›",
+                fontSize = 16.sp,
+                color = if (isToday) faint.copy(alpha = 0.3f) else dim,
                 modifier = Modifier
                     .clickable(enabled = !isToday) { onNextDay() }
-                    .padding(start = 8.dp, top = 2.dp, bottom = 2.dp)
+                    .padding(start = 10.dp, top = 2.dp, bottom = 2.dp)
             )
             if (!isToday) {
                 Text(
-                    "[TODAY]",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
-                    color = AmberBright,
+                    "Jump to today",
+                    fontSize = 12.sp,
+                    color = primary,
                     modifier = Modifier
                         .clickable { onJumpToToday() }
                         .padding(start = 10.dp)
@@ -113,27 +115,24 @@ fun TabLogView(
             }
             Spacer(Modifier.weight(1f))
             Text(
-                if (remaining >= 0) "$remaining LEFT" else "${-remaining} OVER",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
-                color = if (remaining >= 0) AmberFaint else AmberWarn
+                if (remaining >= 0) "$remaining left" else "${-remaining} over",
+                fontSize = 12.sp,
+                color = if (remaining >= 0) dim else error
             )
         }
 
         Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
             Text(
                 "$dayCals",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 20.sp,
+                fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (remaining >= 0) AmberBright else AmberWarn
+                color = if (remaining >= 0) onSurface else error
             )
             Text(
                 " / $calorieTarget kcal",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = AmberDim,
-                modifier = Modifier.padding(top = 7.dp)
+                fontSize = 13.sp,
+                color = dim,
+                modifier = Modifier.padding(top = 10.dp)
             )
         }
 
@@ -142,7 +141,8 @@ fun TabLogView(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
-                .background(ScreenInk)
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             val pct =
                 if (calorieTarget > 0) (dayCals.toFloat() / calorieTarget).coerceIn(0f, 1f)
@@ -151,32 +151,34 @@ fun TabLogView(
                 modifier = Modifier
                     .fillMaxWidth(pct)
                     .height(8.dp)
-                    .background(if (remaining >= 0) Amber else AmberWarn)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(if (remaining >= 0) primary else error)
             )
         }
 
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp)) {
-            DayMacro("PROTEIN", "${trim(dayProtein)}g", Modifier.weight(1f))
-            DayMacro("CARBS", "${trim(dayCarbs)}g", Modifier.weight(1f))
-            DayMacro("FAT", "${trim(dayFat)}g", Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 10.dp)) {
+            DayMacro("Protein", "${trim(dayProtein)}g", Modifier.weight(1f))
+            DayMacro("Carbs", "${trim(dayCarbs)}g", Modifier.weight(1f))
+            DayMacro("Fat", "${trim(dayFat)}g", Modifier.weight(1f))
         }
 
         Hairline()
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
 
         // Meal slot selector
-        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
             mealSlots.forEach { slot ->
                 val isSel = slot == activeMeal
                 Text(
-                    text = slot.uppercase(),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
+                    text = slot.replaceFirstChar { it.uppercase() },
+                    fontSize = 13.sp,
                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSel) Amber else AmberFaint,
+                    color = if (isSel) primary else faint,
                     modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable { onSelectMeal(slot) }
-                        .padding(end = 10.dp, top = 2.dp, bottom = 2.dp)
+                        .background(if (isSel) primary.copy(alpha = 0.12f) else Color.Transparent)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }
         }
@@ -186,52 +188,47 @@ fun TabLogView(
         val mealCals = entries.sumOf { it.calories }
 
         // Per-meal summary — fat is judged per meal, never against a daily budget
-        Row(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
             Text(
                 "$mealCals kcal",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Amber,
+                color = onSurface,
                 modifier = Modifier.weight(1f)
             )
             Text(
-                "FAT ${trim(mealFat)}g / ${trim(fatWarnGrams)}g",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                "Fat ${trim(mealFat)}g / ${trim(fatWarnGrams)}g",
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (mealFat >= fatWarnGrams) AmberWarn else Amber
+                color = if (mealFat >= fatWarnGrams) error else dim
             )
         }
         if (mealFat >= fatWarnGrams && entries.isNotEmpty()) {
             Text(
-                "!! MEAL FAT LIMIT EXCEEDED",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
+                "Over your fat limit for this meal",
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = AmberWarn,
+                color = error,
                 modifier = Modifier.padding(bottom = 4.dp)
             )
         }
         ConditionFlags.forMeal(entries, conditions).forEach { w ->
             Text(
                 "${w.condition.short}: ${w.details.joinToString("; ")}",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
+                fontSize = 12.sp,
                 fontWeight = if (w.severity == Verdict.OVER_LIMIT) FontWeight.Bold else FontWeight.Normal,
                 color = severityColor(w.severity),
-                modifier = Modifier.padding(bottom = 3.dp)
+                modifier = Modifier.padding(bottom = 4.dp)
             )
         }
         Hairline()
 
         if (entries.isEmpty()) {
             Text(
-                "> NO ENTRIES FOR ${activeMeal.uppercase()}\n> PRESS [LOG] TO ADD",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = AmberDim,
-                modifier = Modifier.padding(vertical = 14.dp)
+                "Nothing logged for ${activeMeal} yet. Tap add to log something.",
+                fontSize = 13.sp,
+                color = dim,
+                modifier = Modifier.padding(vertical = 16.dp)
             )
         } else {
             LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
@@ -240,46 +237,43 @@ fun TabLogView(
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .background(if (isSel) RowHighlight else Color.Transparent)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSel) primary.copy(alpha = 0.1f) else Color.Transparent)
                             .clickable { onSelectEntry(entry) }
-                            .padding(horizontal = 5.dp, vertical = 6.dp)
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
                     ) {
                         val flags = ConditionFlags.forEntry(entry, conditions)
                         val worstFlag = flags.maxByOrNull { it.severity.ordinal }?.severity
                         Row(Modifier.fillMaxWidth()) {
                             Text(
-                                if (isSel) "> ${entry.name}" else "  ${entry.name}",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
+                                entry.name,
+                                fontSize = 14.sp,
                                 color = when {
-                                    worstFlag == Verdict.OVER_LIMIT -> AmberWarn
-                                    isSel -> AmberBright
-                                    else -> AmberDim
+                                    worstFlag == Verdict.OVER_LIMIT -> error
+                                    isSel -> onSurface
+                                    else -> dim
                                 },
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
                                 "${entry.calories}",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                color = if (isSel) AmberBright else AmberDim
+                                fontSize = 14.sp,
+                                color = if (isSel) onSurface else dim
                             )
                         }
                         if (flags.isNotEmpty()) {
-                            Row(Modifier.padding(start = 14.dp, top = 2.dp)) {
+                            Row(Modifier.padding(top = 3.dp)) {
                                 flags.forEachIndexed { i, w ->
                                     if (i > 0) {
                                         Text(
                                             " · ",
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = 9.sp,
-                                            color = AmberFaint
+                                            fontSize = 12.sp,
+                                            color = faint
                                         )
                                     }
                                     Text(
                                         w.condition.short,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 9.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = severityColor(w.severity)
                                     )
@@ -287,20 +281,19 @@ fun TabLogView(
                             }
                         }
                         if (isSel) {
-                            Spacer(Modifier.height(6.dp))
-                            StatRow("FAT", "${trim(entry.fatGrams)} g")
-                            StatRow("PROTEIN", "${trim(entry.proteinGrams)} g")
-                            StatRow("CARBS", "${trim(entry.carbGrams)} g")
-                            entry.saturatedFatGrams?.let { StatRow("SAT FAT", "${trim(it)} g") }
-                            entry.sugarGrams?.let { StatRow("SUGAR", "${trim(it)} g") }
-                            entry.fiberGrams?.let { StatRow("FIBER", "${trim(it)} g") }
-                            entry.sodiumMg?.let { StatRow("SODIUM", "${it.toInt()} mg") }
-                            StatRow("SOURCE", entry.source.uppercase())
+                            Spacer(Modifier.height(8.dp))
+                            StatRow("Fat", "${trim(entry.fatGrams)} g")
+                            StatRow("Protein", "${trim(entry.proteinGrams)} g")
+                            StatRow("Carbs", "${trim(entry.carbGrams)} g")
+                            entry.saturatedFatGrams?.let { StatRow("Sat fat", "${trim(it)} g") }
+                            entry.sugarGrams?.let { StatRow("Sugar", "${trim(it)} g") }
+                            entry.fiberGrams?.let { StatRow("Fiber", "${trim(it)} g") }
+                            entry.sodiumMg?.let { StatRow("Sodium", "${it.toInt()} mg") }
+                            StatRow("Source", entry.source.replaceFirstChar { it.uppercase() })
                             flags.forEach { w ->
                                 Text(
                                     "${w.condition.label}: ${w.details.joinToString(", ")}",
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 9.sp,
+                                    fontSize = 12.sp,
                                     color = severityColor(w.severity),
                                     modifier = Modifier.padding(vertical = 2.dp)
                                 )
@@ -309,14 +302,13 @@ fun TabLogView(
                                 .takeIf { it.isNotEmpty() }
                                 ?.let { other ->
                                     Text(
-                                        "other: " + other.joinToString(", ") { it.label },
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 8.sp,
-                                        color = AmberFaint,
+                                        "Also watched: " + other.joinToString(", ") { it.label },
+                                        fontSize = 11.sp,
+                                        color = faint,
                                         modifier = Modifier.padding(vertical = 2.dp)
                                     )
                                 }
-                            TerminalAction("[DELETE ENTRY]", { onDeleteEntry(entry) }, warn = true)
+                            AppAction("Delete entry", { onDeleteEntry(entry) }, warn = true)
                         }
                     }
                     Hairline()
@@ -328,29 +320,30 @@ fun TabLogView(
 
 @Composable
 private fun DayMacro(label: String, value: String, modifier: Modifier = Modifier) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
     Column(modifier) {
         Text(
             label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 8.sp,
-            color = AmberFaint
+            fontSize = 11.sp,
+            color = onSurface.copy(alpha = 0.6f)
         )
         Text(
             value,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = Amber
+            color = onSurface
         )
     }
 }
 
-/** Caution reads as amber, over-limit as warning red. */
+/** Caution reads in the warning tone, over-limit in the error tone. */
+@Composable
 internal fun severityColor(v: Verdict) = when (v) {
-    Verdict.OVER_LIMIT -> AmberWarn
-    Verdict.CAUTION -> Amber
-    Verdict.PASS -> AmberFaint
+    Verdict.OVER_LIMIT -> MaterialTheme.colorScheme.error
+    Verdict.CAUTION -> MaterialTheme.colorScheme.primary
+    Verdict.PASS -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
 }
 
 internal fun trim(v: Double): String =
     if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.1f", v)
+
