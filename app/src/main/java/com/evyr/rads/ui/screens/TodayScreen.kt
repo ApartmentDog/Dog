@@ -9,9 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,6 +22,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.DisposableEffect
@@ -36,12 +39,16 @@ import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
 import com.evyr.rads.health.HealthConnectManager
 import com.evyr.rads.ui.TodayViewModel
 import com.evyr.rads.ui.components.*
+import com.evyr.rads.ui.theme.NavInactive
 import java.io.ByteArrayOutputStream
 
 private val MEAL_SLOTS = listOf("breakfast", "lunch", "dinner", "snack")
 
-private enum class AppTab(val label: String) {
-    LOG("Log"), STATS("Stats"), SYNC("Sync"), SETUP("Setup")
+private enum class AppTab(val label: String, val icon: AppIcon) {
+    LOG("Log", AppIcon.LOG),
+    STATS("Stats", AppIcon.STATS),
+    SYNC("Sync", AppIcon.SYNC),
+    SETUP("Setup", AppIcon.SETUP)
 }
 
 @Composable
@@ -141,29 +148,52 @@ fun TodayScreen() {
             }
     }
 
+    // No FAB: the approved mockup logs food from each meal card's own
+    // "+ Add to" button, which opens the same sheet the FAB used to.
     Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = { activeTab = AppTab.LOG; showScanPicker = true }) {
-                Text("+", fontSize = 22.sp)
-            }
-        },
         bottomBar = {
-            NavigationBar {
-                AppTab.values().forEach { tab ->
-                    NavigationBarItem(
-                        selected = activeTab == tab,
-                        onClick = {
-                            if (tab == AppTab.SYNC) vm.sync()
-                            activeTab = tab
-                        },
-                        icon = {},
-                        label = { Text(tab.label) }
-                    )
+            Column {
+                Hairline()
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
+                ) {
+                    AppTab.values().forEach { tab ->
+                        val selected = activeTab == tab
+                        val tint = if (selected) MaterialTheme.colorScheme.primary else NavInactive
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                if (tab == AppTab.SYNC) vm.sync()
+                                activeTab = tab
+                            },
+                            icon = { AppIconView(tab.icon, tint, iconSize = 24.dp) },
+                            label = {
+                                Text(
+                                    tab.label,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                unselectedTextColor = NavInactive,
+                                indicatorColor = Color.Transparent
+                            )
+                        )
+                    }
                 }
             }
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        // Log runs edge to edge so its hero can go full-bleed; the other
+        // tabs keep the usual side padding.
+        val body = if (activeTab == AppTab.LOG) {
+            Modifier.fillMaxSize().padding(padding)
+        } else {
+            Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp)
+        }
+        Column(body) {
             when (activeTab) {
                 AppTab.LOG -> TabLogView(
                     viewDate = viewDate,
@@ -182,7 +212,12 @@ fun TodayScreen() {
                     listState = listState,
                     onSelectMeal = { activeMeal = it },
                     onSelectEntry = { vm.selectEntry(it.id) },
-                    onDeleteEntry = { vm.deleteEntry(it) }
+                    onDeleteEntry = { vm.deleteEntry(it) },
+                    onAddToMeal = { slot ->
+                        activeMeal = slot
+                        showScanPicker = true
+                    },
+                    onOpenProfile = { activeTab = AppTab.SETUP }
                 )
                 AppTab.STATS -> TabStatsView(
                     scrollState = statsScroll,

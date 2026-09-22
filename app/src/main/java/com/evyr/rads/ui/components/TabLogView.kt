@@ -1,45 +1,51 @@
 package com.evyr.rads.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.foundation.Canvas
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evyr.rads.data.Condition
-import com.evyr.rads.data.ConditionFlags
 import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.ui.theme.Terracotta
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+
+private val HeroLight = Color(0xFFF0A868)
 
 @Composable
 fun TabLogView(
@@ -59,40 +65,41 @@ fun TabLogView(
     listState: LazyListState,
     onSelectMeal: (String) -> Unit,
     onSelectEntry: (FoodLogEntry) -> Unit,
-    onDeleteEntry: (FoodLogEntry) -> Unit
+    onDeleteEntry: (FoodLogEntry) -> Unit,
+    onAddToMeal: (String) -> Unit,
+    onOpenProfile: () -> Unit
 ) {
-    // listState is accepted for call-site compatibility with the other tabs'
-    // scroll-state pattern, but the accordion layout below scrolls itself
-    // (verticalScroll on the outer Column) rather than via LazyColumn, so it
-    // isn't wired to anything here.
+    // activeMeal, entries and listState are still accepted so the call site
+    // stays the same shape; the accordion shows every meal at once and
+    // scrolls itself, so none of them drive layout here.
 
     val dayCals = dayEntries.sumOf { it.calories }
-    val dayFat = dayEntries.sumOf { it.fatGrams }
     val dayProtein = dayEntries.sumOf { it.proteinGrams }
     val dayCarbs = dayEntries.sumOf { it.carbGrams }
 
-    // Rough daily macro targets for the bar fills -- protein/carbs don't have
-    // their own stored goals, so these scale off the calorie target the same
-    // rough ratios a typical macro split uses. Purely a visual fill, not a
-    // tracked limit the way fat is.
+    // Protein/carbs have no stored goals, so the bars scale off the calorie
+    // target with a typical split. Visual fill only; fat is the tracked limit.
     val proteinTarget = (calorieTarget * 0.24 / 4).coerceAtLeast(1.0)
     val carbTarget = (calorieTarget * 0.44 / 4).coerceAtLeast(1.0)
 
-    // Which meal cards are expanded. A meal with items in it starts expanded,
-    // same behavior as the original PWA (expandedMeals.add on first render).
-    val expanded = remember(mealSlots) {
+    // Meals that already have items start open, like the PWA's expandedMeals.
+    // Keyed on the date so switching days recomputes it.
+    val expanded = remember(viewDate) {
         mutableStateOf(mealSlots.filter { slot -> dayEntries.any { it.mealSlot == slot } }.toSet())
     }
 
-    val scrollState = rememberScrollState()
-
-    Column(Modifier.fillMaxWidth().verticalScroll(scrollState)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+    ) {
         LogHero(
             viewDate = viewDate,
             isToday = isToday,
             onPreviousDay = onPreviousDay,
             onNextDay = onNextDay,
             onJumpToToday = onJumpToToday,
+            onOpenProfile = onOpenProfile,
             dayCals = dayCals,
             calorieTarget = calorieTarget,
             dayProtein = dayProtein,
@@ -101,63 +108,38 @@ fun TabLogView(
             carbTarget = carbTarget
         )
 
-        Spacer(Modifier.height(14.dp))
-
-        Column(Modifier.fillMaxWidth(), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             mealSlots.forEach { slot ->
-                val slotEntries = dayEntries.filter { it.mealSlot == slot }
                 MealAccordionCard(
                     slot = slot,
                     label = slot.replaceFirstChar { it.uppercase() },
-                    entries = slotEntries,
+                    entries = dayEntries.filter { it.mealSlot == slot },
                     expanded = slot in expanded.value,
+                    selectedEntryId = selectedEntry?.id,
+                    fatWarnGrams = fatWarnGrams,
+                    conditions = conditions,
                     onToggle = {
-                        expanded.value = if (slot in expanded.value) {
-                            expanded.value - slot
-                        } else {
-                            expanded.value + slot
-                        }
+                        expanded.value =
+                            if (slot in expanded.value) expanded.value - slot else expanded.value + slot
                         onSelectMeal(slot)
                     },
                     onSelectEntry = onSelectEntry,
                     onDeleteEntry = onDeleteEntry,
-                    onAdd = { onSelectMeal(slot) }
+                    onAdd = { onAddToMeal(slot) }
                 )
             }
         }
-
-        // Condition warnings for whichever meal is currently the log target
-        // (activeMeal), shown below the accordion stack rather than inside
-        // each card -- keeps the cards focused on what was eaten, warnings
-        // stay in one predictable spot.
-        val activeEntries = dayEntries.filter { it.mealSlot == activeMeal }
-        val mealFat = activeEntries.sumOf { it.fatGrams }
-        if (mealFat >= fatWarnGrams && activeEntries.isNotEmpty()) {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Over your fat limit for ${activeMeal}",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
-        ConditionFlags.forMeal(activeEntries, conditions).forEach { w ->
-            Text(
-                "${w.condition.short}: ${w.details.joinToString("; ")}",
-                fontSize = 12.sp,
-                fontWeight = if (w.severity == Verdict.OVER_LIMIT) FontWeight.Bold else FontWeight.Normal,
-                color = severityColor(w.severity),
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
     }
 }
 
 /**
- * Gradient hero card: date nav, calorie ring, and macro bars with icon
- * chips. Replaces the old flat header row + thin progress bar.
+ * Full-bleed gradient hero: date pill, profile avatar, calorie ring and
+ * protein/carb bars, with two soft decorative circles behind the content.
  */
 @Composable
 private fun LogHero(
@@ -166,6 +148,7 @@ private fun LogHero(
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
     onJumpToToday: () -> Unit,
+    onOpenProfile: () -> Unit,
     dayCals: Int,
     calorieTarget: Int,
     dayProtein: Double,
@@ -176,58 +159,88 @@ private fun LogHero(
     Box(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFFF0A868), Terracotta)))
-            .padding(20.dp)
+            .clipToBounds()
+            .background(Brush.linearGradient(listOf(HeroLight, Terracotta)))
     ) {
-        Column {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 40.dp, y = (-50).dp)
+                .size(160.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.12f))
+        )
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .offset(x = (-10).dp, y = 50.dp)
+                .size(110.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.08f))
+        )
+
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 26.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.22f))
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         "\u2039",
                         fontSize = 18.sp,
                         color = Color.White,
-                        modifier = Modifier.clickable { onPreviousDay() }.padding(end = 8.dp)
+                        modifier = Modifier.clickable { onPreviousDay() }.padding(horizontal = 8.dp)
                     )
                     Text(
-                        if (isToday) "Today" else viewDate.format(DateTimeFormatter.ofPattern("EEE d MMM")),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
+                        viewDate.format(DateTimeFormatter.ofPattern("EEE d MMM")),
+                        fontSize = 14.sp,
                         color = Color.White
                     )
                     Text(
                         "\u203A",
                         fontSize = 18.sp,
-                        color = Color.White.copy(alpha = if (isToday) 0.4f else 1f),
+                        color = Color.White.copy(alpha = if (isToday) 0.35f else 1f),
                         modifier = Modifier
                             .clickable(enabled = !isToday) { onNextDay() }
-                            .padding(start = 8.dp)
+                            .padding(horizontal = 8.dp)
                     )
                 }
                 if (!isToday) {
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        "Jump to today",
+                        "Today",
                         fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
                         color = Color.White,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White.copy(alpha = 0.2f))
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.22f))
                             .clickable { onJumpToToday() }
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 7.dp)
                     )
+                }
+                Spacer(Modifier.weight(1f))
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable { onOpenProfile() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    AppIconView(AppIcon.PERSON, Terracotta, iconSize = 20.dp, strokeWidth = 2.dp)
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(18.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CalorieRing(eaten = dayCals, target = calorieTarget, modifier = Modifier.size(104.dp))
+                CalorieRing(eaten = dayCals, target = calorieTarget)
                 Spacer(Modifier.width(18.dp))
-                Column(Modifier.weight(1f), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     MacroBarRow(emoji = "\uD83E\uDD69", label = "Protein", value = dayProtein, target = proteinTarget)
                     MacroBarRow(emoji = "\uD83C\uDF5E", label = "Carbs", value = dayCarbs, target = carbTarget)
                 }
@@ -237,10 +250,10 @@ private fun LogHero(
 }
 
 @Composable
-private fun CalorieRing(eaten: Int, target: Int, modifier: Modifier = Modifier) {
+private fun CalorieRing(eaten: Int, target: Int) {
     val pct = if (target > 0) (eaten.toFloat() / target).coerceIn(0f, 1f) else 0f
-    Box(modifier, contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.size(104.dp)) {
+    Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(112.dp)) {
             val stroke = 11.dp.toPx()
             val diameter = size.minDimension - stroke
             val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
@@ -250,26 +263,34 @@ private fun CalorieRing(eaten: Int, target: Int, modifier: Modifier = Modifier) 
                 sweepAngle = 360f,
                 useCenter = false,
                 topLeft = topLeft,
-                size = androidx.compose.ui.geometry.Size(diameter, diameter),
-                style = Stroke(width = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                size = Size(diameter, diameter),
+                style = Stroke(width = stroke)
             )
-            drawArc(
-                color = Color.White,
-                startAngle = -90f,
-                sweepAngle = 360f * pct,
-                useCenter = false,
-                topLeft = topLeft,
-                size = androidx.compose.ui.geometry.Size(diameter, diameter),
-                style = Stroke(width = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            )
+            if (pct > 0f) {
+                drawArc(
+                    color = Color.White,
+                    startAngle = -90f,
+                    sweepAngle = 360f * pct,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = Size(diameter, diameter),
+                    style = Stroke(width = stroke, cap = StrokeCap.Round)
+                )
+            }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("$eaten", fontSize = 24.sp, fontWeight = FontWeight.Medium, color = Color.White)
             Text(
-                "eaten",
-                fontSize = 9.sp,
-                color = Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.padding(top = 2.dp)
+                "$eaten",
+                fontSize = 30.sp,
+                fontFamily = FontFamily.Serif,
+                color = Color.White
+            )
+            Text(
+                "EATEN",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.5.sp,
+                color = Color.White.copy(alpha = 0.9f)
             )
         }
     }
@@ -280,40 +301,37 @@ private fun MacroBarRow(emoji: String, label: String, value: Double, target: Dou
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
-                .size(26.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(30.dp)
+                .clip(RoundedCornerShape(9.dp))
                 .background(Color.White.copy(alpha = 0.22f)),
             contentAlignment = Alignment.Center
         ) {
-            Text(emoji, fontSize = 14.sp)
+            Text(emoji, fontSize = 15.sp)
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
-            ) {
-                Text(label, fontSize = 11.sp, color = Color.White.copy(alpha = 0.9f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(label, fontSize = 13.sp, color = Color.White.copy(alpha = 0.95f))
                 Text(
                     "${value.toInt()}/${target.toInt()}g",
-                    fontSize = 11.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.9f)
+                    color = Color.White.copy(alpha = 0.95f)
                 )
             }
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(4.dp))
             val pct = if (target > 0) (value / target).coerceIn(0.0, 1.0) else 0.0
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(5.dp)
+                    .height(6.dp)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(Color.White.copy(alpha = 0.25f))
+                    .background(Color.White.copy(alpha = 0.28f))
             ) {
                 Box(
                     Modifier
                         .fillMaxWidth(pct.toFloat())
-                        .height(5.dp)
+                        .height(6.dp)
                         .clip(RoundedCornerShape(3.dp))
                         .background(Color.White)
                 )

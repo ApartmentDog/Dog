@@ -28,6 +28,11 @@ val SageAccent = Color(0xFF6AB87A)       // --green
 val SageAccentSoft = Color(0x216AB87A)   // --green-soft
 val InfoBlue = Color(0xFF7AB8C8)         // --blue
 
+// From the approved mockup rather than the PWA: page background a touch
+// lighter than --bg, and the muted tone for inactive bottom-nav items.
+val PageBg = Color(0xFFFBF4EC)
+val NavInactive = Color(0xFFB8A88E)
+
 // --- Per-meal accent tints ---
 // One color family per meal slot so the accordion cards on the log screen
 // read as visually distinct at a glance, matching the approved mockup.

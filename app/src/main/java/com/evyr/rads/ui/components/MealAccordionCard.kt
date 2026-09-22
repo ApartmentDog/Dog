@@ -1,7 +1,9 @@
 package com.evyr.rads.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,10 +21,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.Condition
+import com.evyr.rads.data.ConditionFlags
+import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.ui.theme.*
 
@@ -32,8 +44,6 @@ private data class MealTint(
     val text: Color
 )
 
-// Single-theme tints -- no dark variant, matching gut-check-v3-1.html,
-// which never defined dark-mode colors.
 private fun mealTint(slot: String): MealTint = when (slot) {
     "breakfast" -> MealTint(MealBreakfastBg, MealBreakfastBorder, MealBreakfastChip, MealBreakfastText)
     "lunch" -> MealTint(MealLunchBg, MealLunchBorder, MealLunchChip, MealLunchText)
@@ -42,18 +52,15 @@ private fun mealTint(slot: String): MealTint = when (slot) {
 }
 
 private fun mealIcon(slot: String): String = when (slot) {
-    "breakfast" -> "\uD83C\uDF73" // fried egg
-    "lunch" -> "\uD83E\uDD57" // salad
-    "dinner" -> "\uD83C\uDF7D\uFE0F" // fork and plate
+    "breakfast" -> "\uD83C\uDF73" // cooking (pan + egg)
+    "lunch" -> "\uD83E\uDD57" // green salad
+    "dinner" -> "\uD83C\uDF7D\uFE0F" // fork and knife with plate
     else -> "\uD83C\uDF7F" // popcorn
 }
 
 /**
  * Content-matched emoji per food name, ported from the original Gut Check
- * PWA's getFoodEmoji(). Falls back to a plate for anything unmatched. RADS
- * doesn't carry the old fried/spicy/acidic flag field on FoodLogEntry, so
- * only the name-matching half of the original function applies here --
- * condition warnings are already shown separately via ConditionFlags.
+ * PWA's getFoodEmoji(). Falls back to a plate for anything unmatched.
  */
 private fun foodEmoji(name: String): String {
     val n = name.lowercase()
@@ -63,21 +70,21 @@ private fun foodEmoji(name: String): String {
         n.contains("pizza") -> "\uD83C\uDF55"
         n.contains("salad") -> "\uD83E\uDD57"
         n.contains("fish") || n.contains("tuna") || n.contains("salmon") -> "\uD83D\uDC1F"
-        n.contains("egg") -> "\uD83E\uDD5A"
+        n.contains("egg") -> "\uD83C\uDF73"
         n.contains("milk") || n.contains("yogurt") -> "\uD83E\uDD5B"
         n.contains("bread") || n.contains("toast") -> "\uD83C\uDF5E"
         n.contains("rice") -> "\uD83C\uDF5A"
         n.contains("pasta") || n.contains("noodle") -> "\uD83C\uDF5D"
-        n.contains("coffee") -> "\u2615"
+        n.contains("coffee") || n.contains("latte") -> "\u2615"
         else -> "\uD83C\uDF7D\uFE0F"
     }
 }
 
 /**
- * One meal's accordion card: tinted header (icon, name, item count, total
- * kcal, chevron) that expands to show each logged item plus an "add" button.
- * All four meals render stacked and independently expandable -- this
- * replaces the old single-active-meal tab switcher entirely.
+ * One meal as a tinted accordion card: header (icon, name, item count,
+ * alert dot, total kcal, chevron) that expands to show that meal's fat and
+ * condition warnings, each logged item, and a dashed "+ Add to" button.
+ * Fat is judged per meal here, never against a daily budget.
  */
 @Composable
 fun MealAccordionCard(
@@ -85,19 +92,31 @@ fun MealAccordionCard(
     label: String,
     entries: List<FoodLogEntry>,
     expanded: Boolean,
+    selectedEntryId: Long?,
+    fatWarnGrams: Double,
+    conditions: Set<Condition>,
     onToggle: () -> Unit,
     onSelectEntry: (FoodLogEntry) -> Unit,
     onDeleteEntry: (FoodLogEntry) -> Unit,
     onAdd: () -> Unit
 ) {
     val tint = mealTint(slot)
+    val error = MaterialTheme.colorScheme.error
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val cardShape = RoundedCornerShape(16.dp)
+
     val total = entries.sumOf { it.calories }
+    val mealFat = entries.sumOf { it.fatGrams }
+    val overFat = entries.isNotEmpty() && mealFat >= fatWarnGrams
+    val mealWarnings = ConditionFlags.forMeal(entries, conditions)
+    val hasAlert = overFat || mealWarnings.any { it.severity == Verdict.OVER_LIMIT }
 
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(cardShape)
             .background(tint.bg)
+            .border(1.dp, tint.border, cardShape)
     ) {
         Row(
             Modifier
@@ -116,7 +135,7 @@ fun MealAccordionCard(
                 Text(mealIcon(slot), fontSize = 18.sp)
             }
             Spacer(Modifier.width(10.dp))
-            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = onSurface)
             if (entries.isNotEmpty()) {
                 Spacer(Modifier.width(8.dp))
                 Box(
@@ -128,80 +147,181 @@ fun MealAccordionCard(
                     Text("${entries.size}", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = tint.text)
                 }
             }
+            if (hasAlert) {
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.size(8.dp).clip(CircleShape).background(error))
+            }
             Spacer(Modifier.weight(1f))
             if (total > 0) {
-                Text("$total", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = tint.text)
+                Text("$total", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = tint.text)
                 Spacer(Modifier.width(8.dp))
             }
-            Text(
-                if (expanded) "\u25B4" else "\u25BE",
-                fontSize = 14.sp,
-                color = tint.text
+            AppIconView(
+                icon = if (expanded) AppIcon.CHEVRON_DOWN else AppIcon.CHEVRON_RIGHT,
+                color = tint.text,
+                iconSize = 18.dp,
+                strokeWidth = 2.dp
             )
         }
 
         if (expanded) {
-            Column(Modifier.fillMaxWidth().padding(start = 15.dp, end = 15.dp, bottom = 13.dp)) {
-                entries.forEach { entry ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .clickable { onSelectEntry(entry) }
-                            .padding(horizontal = 10.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(9.dp))
-                                .background(tint.bg),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(foodEmoji(entry.name), fontSize = 17.sp)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                entry.name,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "${trim(entry.fatGrams)}g fat \u00B7 ${trim(entry.proteinGrams)}g prot",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
-                        Text(
-                            "${entry.calories}",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 15.dp, end = 15.dp, bottom = 13.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (overFat) {
+                    Text(
+                        "Over your fat limit for this meal: ${trim(mealFat)}g of ${trim(fatWarnGrams)}g",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = error
+                    )
+                }
+                mealWarnings.forEach { w ->
+                    Text(
+                        "${w.condition.short}: ${w.details.joinToString("; ")}",
+                        fontSize = 12.sp,
+                        fontWeight = if (w.severity == Verdict.OVER_LIMIT) FontWeight.Bold else FontWeight.Normal,
+                        color = severityColor(w.severity)
+                    )
                 }
 
+                entries.forEach { entry ->
+                    FoodRow(
+                        entry = entry,
+                        tint = tint,
+                        selected = entry.id == selectedEntryId,
+                        conditions = conditions,
+                        onClick = { onSelectEntry(entry) },
+                        onDelete = { onDeleteEntry(entry) }
+                    )
+                }
+
+                val dash = tint.text.copy(alpha = 0.5f)
                 Box(
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color.Transparent)
+                        .drawBehind {
+                            val sw = 1.5.dp.toPx()
+                            drawRoundRect(
+                                color = dash,
+                                topLeft = Offset(sw / 2f, sw / 2f),
+                                size = Size(size.width - sw, size.height - sw),
+                                cornerRadius = CornerRadius(12.dp.toPx()),
+                                style = Stroke(
+                                    width = sw,
+                                    pathEffect = PathEffect.dashPathEffect(
+                                        floatArrayOf(6.dp.toPx(), 4.dp.toPx()), 0f
+                                    )
+                                )
+                            )
+                        }
                         .clickable { onAdd() }
-                        .padding(vertical = 9.dp),
+                        .padding(vertical = 11.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "+ Add to $label",
-                        fontSize = 12.sp,
+                        "+ Add to ${label.lowercase()}",
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = tint.text
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FoodRow(
+    entry: FoodLogEntry,
+    tint: MealTint,
+    selected: Boolean,
+    conditions: Set<Condition>,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val error = MaterialTheme.colorScheme.error
+    val rowShape = RoundedCornerShape(12.dp)
+    val flags = ConditionFlags.forEntry(entry, conditions)
+    val worst = flags.maxByOrNull { it.severity.ordinal }?.severity
+
+    val sub = buildList {
+        add("${trim(entry.fatGrams)}g fat")
+        if (entry.proteinGrams > 0) add("${trim(entry.proteinGrams)}g prot")
+    }.joinToString(" \u00B7 ")
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(rowShape)
+            .background(Color.White)
+            .border(1.dp, tint.border, rowShape)
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 9.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(tint.bg),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(foodEmoji(entry.name), fontSize = 18.sp)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    entry.name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (worst == Verdict.OVER_LIMIT) error else onSurface
+                )
+                Text(sub, fontSize = 12.sp, color = onSurface.copy(alpha = 0.6f))
+                if (flags.isNotEmpty()) {
+                    Row(Modifier.padding(top = 2.dp)) {
+                        flags.forEachIndexed { i, w ->
+                            if (i > 0) {
+                                Text(" \u00B7 ", fontSize = 11.sp, color = onSurface.copy(alpha = 0.4f))
+                            }
+                            Text(
+                                w.condition.short,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = severityColor(w.severity)
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Text("${entry.calories}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = onSurface)
+        }
+
+        if (selected) {
+            Spacer(Modifier.height(8.dp))
+            Hairline()
+            Spacer(Modifier.height(4.dp))
+            StatRow("Carbs", "${trim(entry.carbGrams)} g")
+            entry.saturatedFatGrams?.let { StatRow("Sat fat", "${trim(it)} g") }
+            entry.sugarGrams?.let { StatRow("Sugar", "${trim(it)} g") }
+            entry.fiberGrams?.let { StatRow("Fiber", "${trim(it)} g") }
+            entry.sodiumMg?.let { StatRow("Sodium", "${it.toInt()} mg") }
+            StatRow("Source", entry.source.replaceFirstChar { it.uppercase() })
+            flags.forEach { w ->
+                Text(
+                    "${w.condition.label}: ${w.details.joinToString(", ")}",
+                    fontSize = 12.sp,
+                    color = severityColor(w.severity),
+                    modifier = Modifier.padding(vertical = 2.dp)
+                )
+            }
+            AppAction("Delete entry", onDelete, warn = true)
         }
     }
 }
