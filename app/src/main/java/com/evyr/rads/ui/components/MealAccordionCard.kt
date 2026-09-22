@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,20 +32,13 @@ private data class MealTint(
     val text: Color
 )
 
-@Composable
-private fun mealTint(slot: String, dark: Boolean): MealTint = when (slot) {
-    "breakfast" -> if (dark)
-        MealTint(MealBreakfastBgDark, MealBreakfastBorderDark, MealBreakfastChipDark, MealBreakfastTextDark)
-    else MealTint(MealBreakfastBg, MealBreakfastBorder, MealBreakfastChip, MealBreakfastText)
-    "lunch" -> if (dark)
-        MealTint(MealLunchBgDark, MealLunchBorderDark, MealLunchChipDark, MealLunchTextDark)
-    else MealTint(MealLunchBg, MealLunchBorder, MealLunchChip, MealLunchText)
-    "dinner" -> if (dark)
-        MealTint(MealDinnerBgDark, MealDinnerBorderDark, MealDinnerChipDark, MealDinnerTextDark)
-    else MealTint(MealDinnerBg, MealDinnerBorder, MealDinnerChip, MealDinnerText)
-    else -> if (dark)
-        MealTint(MealSnackBgDark, MealSnackBorderDark, MealSnackChipDark, MealSnackTextDark)
-    else MealTint(MealSnackBg, MealSnackBorder, MealSnackChip, MealSnackText)
+// Single-theme tints -- no dark variant, matching gut-check-v3-1.html,
+// which never defined dark-mode colors.
+private fun mealTint(slot: String): MealTint = when (slot) {
+    "breakfast" -> MealTint(MealBreakfastBg, MealBreakfastBorder, MealBreakfastChip, MealBreakfastText)
+    "lunch" -> MealTint(MealLunchBg, MealLunchBorder, MealLunchChip, MealLunchText)
+    "dinner" -> MealTint(MealDinnerBg, MealDinnerBorder, MealDinnerChip, MealDinnerText)
+    else -> MealTint(MealSnackBg, MealSnackBorder, MealSnackChip, MealSnackText)
 }
 
 private fun mealIcon(slot: String): String = when (slot) {
@@ -98,8 +90,7 @@ fun MealAccordionCard(
     onDeleteEntry: (FoodLogEntry) -> Unit,
     onAdd: () -> Unit
 ) {
-    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val tint = mealTint(slot, dark)
+    val tint = mealTint(slot)
     val total = entries.sumOf { it.calories }
 
     Column(
