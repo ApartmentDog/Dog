@@ -62,7 +62,7 @@ object UsdaFoodSearch {
                 val body = response.body?.string().orEmpty()
                 if (response.code == 429) {
                     return@withContext Result.Failed(
-                        "USDA rate limit hit. Add a free API key in SETUP."
+                        "USDA rate limit hit. Add a free API key in Setup."
                     )
                 }
                 if (!response.isSuccessful) {
@@ -139,6 +139,9 @@ object UsdaFoodSearch {
             sodiumMg = nutrientOrNull(N_SODIUM)?.let { (it * factor).roundToInt().toDouble() },
             ingredients = f.optString("ingredients", "").ifBlank { null },
             servingNote = note,
+            // Branded foods carry their package UPC, which lets a scanned
+            // barcode match USDA as well as Open Food Facts.
+            barcode = f.optString("gtinUpc", "").trim().ifBlank { null },
             basisGrams = if (scalable) null else 100.0,
             servingGrams = servingSize.takeIf { scalable },
             sourceId = f.optLong("fdcId", 0L).takeIf { it > 0 }?.toString(),

@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
@@ -195,20 +196,54 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * USDA FoodData Central is the primary source; Open Food Facts fills in
-     * packaged items USDA misses. Results are merged, USDA first.
+     * One search box for everything. Digits only (6-14 of them) are treated
+     * as a barcode and checked against Open Food Facts and USDA's branded
+     * foods at once; anything else is a name search across both databases
+     * in parallel, USDA first, with an AI estimate as the last resort when
+     * neither has it.
      */
     fun runSearch() {
         val q = _searchQuery.value.trim()
         if (q.isBlank()) return
         viewModelScope.launch {
             _searching.value = true
-            _searchMessage.value = null
             _searchResults.value = emptyList()
-
             val ctx = getApplication<Application>()
-            val usda = UsdaFoodSearch.search(q, SecureStore.usdaKey(ctx))
-            val off = runCatching { OpenFoodFacts.search(q) }.getOrDefault(emptyList())
+
+            val isBarcode = q.length in 6..14 && q.all { it.isDigit() }
+            if (isBarcode) {
+                _searchMessage.value = "Looking up barcode $q..."
+                val offJob = async { runCatching { OpenFoodFacts.lookup(q) }.getOrNull() }
+                val usdaJob = async { UsdaFoodSearch.search(q, SecureStore.usdaKey(ctx)) }
+                val off = offJob.await()
+                val usda = usdaJob.await()
+
+                val wanted = q.trimStart('0')
+                val offFoods = (off as? OpenFoodFacts.Result.Found)?.let { listOf(it.food) }
+                    ?: emptyList()
+                val usdaFoods = (usda as? UsdaFoodSearch.Result.Found)?.foods
+                    ?.filter { it.barcode?.trimStart('0') == wanted }
+                    ?: emptyList()
+                val merged = offFoods + usdaFoods
+
+                _searching.value = false
+                if (merged.isEmpty()) {
+                    _searchMessage.value = (off as? OpenFoodFacts.Result.Failed)?.message
+                        ?: "Barcode $q isn't in USDA or Open Food Facts.\n\nTry searching the product name, or enter it manually."
+                } else {
+                    _searchMessage.value = null
+                    _searchResults.value = merged
+                    // A single exact hit goes straight to the portion step.
+                    if (merged.size == 1) choosePortion(merged.first())
+                }
+                return@launch
+            }
+
+            _searchMessage.value = "Searching USDA and Open Food Facts..."
+            val usdaJob = async { UsdaFoodSearch.search(q, SecureStore.usdaKey(ctx)) }
+            val offJob = async { runCatching { OpenFoodFacts.search(q) }.getOrDefault(emptyList()) }
+            val usda = usdaJob.await()
+            val off = offJob.await()
 
             var usdaError: String? = null
             val merged = when (usda) {
@@ -222,21 +257,22 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
             if (merged.isNotEmpty()) {
                 _searchResults.value = merged
+                _searchMessage.value = null
                 _searching.value = false
                 return@launch
             }
 
-            // Tier 3: neither database has it. Fall back to an AI estimate,
-            // which is where chain-restaurant items usually land.
+            // Neither database has it. Fall back to an AI estimate, which is
+            // where chain-restaurant items usually land.
             val key = SecureStore.geminiKey(ctx)
             if (key.isBlank()) {
                 _searchMessage.value = usdaError
-                    ?: "No matches for \"$q\".\n\nAdd a Gemini key in SETUP to estimate items the databases don't carry, or use manual entry."
+                    ?: "No matches for \"$q\".\n\nAdd a Gemini key in Setup to estimate foods the databases don't carry, or enter it manually."
                 _searching.value = false
                 return@launch
             }
 
-            _searchMessage.value = "NOT IN DATABASES — ESTIMATING..."
+            _searchMessage.value = "Not in either database. Estimating with AI..."
             when (val ai = GeminiVision.estimateFromText(key, SecureStore.geminiModel(ctx), q)) {
                 is GeminiVision.Result.Found -> {
                     _searchResults.value = ai.foods
@@ -251,7 +287,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                             _searchMessage.value = null
                         }
                         else -> _searchMessage.value =
-                            "No matches for \"$q\". Try manual entry."
+                            "No matches for \"$q\". Try entering it manually."
                     }
                 }
                 is GeminiVision.Result.Failed ->
@@ -264,33 +300,27 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
     fun aiEnabled(): Boolean = SecureStore.hasGeminiKey(getApplication<Application>())
 
+    /** A scanned barcode runs through the same search as a typed one. */
     fun onBarcodeScanned(barcode: String) {
-        viewModelScope.launch {
-            _scanState.value = ScanState.Working("LOOKING UP $barcode...")
-            when (val r = OpenFoodFacts.lookup(barcode)) {
-                is OpenFoodFacts.Result.Found -> {
-                    _scanState.value = ScanState.Idle
-                    choosePortion(r.food)
-                }
-                is OpenFoodFacts.Result.NotFound ->
-                    _scanState.value = ScanState.Message(
-                        "Barcode ${r.barcode} isn't in the database.\n\nEnter it manually instead."
-                    )
-                is OpenFoodFacts.Result.Failed ->
-                    _scanState.value = ScanState.Message(r.message)
-            }
-        }
+        _searchQuery.value = barcode
+        runSearch()
     }
 
+    /** Photo results land in the same results list as a search. */
     fun onPhotoCaptured(bytes: ByteArray) {
         viewModelScope.launch {
             val ctx = getApplication<Application>()
+            _searchQuery.value = ""
+            _searchResults.value = emptyList()
+
             val key = SecureStore.geminiKey(ctx)
             if (key.isBlank()) {
-                _scanState.value = ScanState.Message("No Gemini API key set. Add one in SETUP.")
+                _searchMessage.value = "Add a Gemini key in Setup to log from a photo."
                 return@launch
             }
-            _scanState.value = ScanState.Working("ANALYSING IMAGE...")
+
+            _searching.value = true
+            _searchMessage.value = "Reading your photo..."
 
             var result = GeminiVision.analyze(key, SecureStore.geminiModel(ctx), bytes)
 
@@ -298,23 +328,22 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             if (result is GeminiVision.Result.ModelRetired) {
                 val suggested = result.suggested
                 SecureStore.setGeminiModel(ctx, suggested)
-                _scanState.value = ScanState.Working("MODEL UPDATED. RETRYING...")
                 result = GeminiVision.analyze(key, suggested, bytes)
             }
 
             when (val r = result) {
-                is GeminiVision.Result.Found ->
-                    if (r.foods.size == 1) {
-                        _scanState.value = ScanState.Idle
-                        choosePortion(r.foods.first())
-                    } else _scanState.value = ScanState.Choose(r.foods)
+                is GeminiVision.Result.Found -> {
+                    _searchResults.value = r.foods
+                    _searchMessage.value = null
+                    if (r.foods.size == 1) choosePortion(r.foods.first())
+                }
                 is GeminiVision.Result.Failed ->
-                    _scanState.value = ScanState.Message(r.message)
+                    _searchMessage.value = r.message
                 is GeminiVision.Result.ModelRetired ->
-                    _scanState.value = ScanState.Message(
-                        "Model name is out of date. Set it to \"${r.suggested}\" in SETUP."
-                    )
+                    _searchMessage.value =
+                        "The AI model name is out of date. Set it to \"${r.suggested}\" in Setup."
             }
+            _searching.value = false
         }
     }
 

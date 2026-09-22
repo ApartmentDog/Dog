@@ -18,7 +18,10 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
 
-enum class AppIcon { LOG, STATS, SYNC, SETUP, PERSON, CHEVRON_RIGHT, CHEVRON_DOWN }
+enum class AppIcon {
+    LOG, STATS, SYNC, SETUP, PERSON, CHEVRON_RIGHT, CHEVRON_DOWN,
+    SEARCH, BARCODE, CAMERA, PHOTO, PENCIL
+}
 
 /**
  * Line icons drawn on a 24-unit grid, traced from the Tabler icons used in
@@ -133,6 +136,46 @@ fun AppIconView(
             AppIcon.CHEVRON_DOWN -> {
                 line(6f, 9f, 12f, 15f)
                 line(12f, 15f, 18f, 9f)
+            }
+            AppIcon.SEARCH -> {
+                drawCircle(color, radius = 6.5f * s, center = pt(10.5f, 10.5f), style = stroke)
+                line(15.5f, 15.5f, 20f, 20f)
+            }
+            AppIcon.BARCODE -> {
+                // Scanner corner brackets around a few bars.
+                line(4f, 8f, 4f, 4f); line(4f, 4f, 8f, 4f)
+                line(16f, 4f, 20f, 4f); line(20f, 4f, 20f, 8f)
+                line(4f, 16f, 4f, 20f); line(4f, 20f, 8f, 20f)
+                line(16f, 20f, 20f, 20f); line(20f, 20f, 20f, 16f)
+                line(8f, 9f, 8f, 15f)
+                line(11f, 9f, 11f, 15f)
+                line(13.5f, 9f, 13.5f, 15f)
+                line(16f, 9f, 16f, 15f)
+            }
+            AppIcon.CAMERA -> {
+                roundBox(3f, 7f, 21f, 20f, 2f)
+                line(8.5f, 7f, 10f, 4.5f)
+                line(10f, 4.5f, 14f, 4.5f)
+                line(14f, 4.5f, 15.5f, 7f)
+                drawCircle(color, radius = 3.5f * s, center = pt(12f, 13.5f), style = stroke)
+            }
+            AppIcon.PHOTO -> {
+                roundBox(3f, 3f, 21f, 21f, 3f)
+                drawCircle(color, radius = sw * 0.7f, center = pt(15.5f, 8.5f))
+                line(3f, 16f, 8f, 11f); line(8f, 11f, 13f, 16f)
+                line(13f, 15f, 16f, 12f); line(16f, 12f, 21f, 17f)
+            }
+            AppIcon.PENCIL -> {
+                val pencil = Path().apply {
+                    moveTo(4f * s, 20f * s)
+                    lineTo(4f * s, 16f * s)
+                    lineTo(15f * s, 5f * s)
+                    lineTo(19f * s, 9f * s)
+                    lineTo(8f * s, 20f * s)
+                    close()
+                }
+                drawPath(pencil, color, style = stroke)
+                line(13f, 7f, 17f, 11f)
             }
         }
     }

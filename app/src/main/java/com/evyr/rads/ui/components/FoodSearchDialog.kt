@@ -2,6 +2,7 @@ package com.evyr.rads.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,7 +25,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -35,7 +39,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.evyr.rads.data.FoodPortion
 import com.evyr.rads.data.ScannedFood
+import com.evyr.rads.ui.theme.InfoBlue
+import com.evyr.rads.ui.theme.SageAccent
+import com.evyr.rads.ui.theme.WarnAmber
 
+/**
+ * The single "add food" sheet. One box takes a food name or a barcode;
+ * results from USDA, Open Food Facts and (when needed) an AI estimate all
+ * land in the same list, each labelled with where it came from. Scanning a
+ * barcode or taking a photo feeds the same list instead of opening screens
+ * of their own.
+ */
 @Composable
 fun FoodSearchDialog(
     mealSlot: String,
@@ -43,81 +57,119 @@ fun FoodSearchDialog(
     results: List<ScannedFood>,
     searching: Boolean,
     message: String?,
+    aiEnabled: Boolean,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onPick: (ScannedFood) -> Unit,
+    onScanBarcode: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onPickPhoto: () -> Unit,
     onManual: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val onSurface = MaterialTheme.colorScheme.onSurface
     val dim = onSurface.copy(alpha = 0.6f)
-    val faint = onSurface.copy(alpha = 0.45f)
     val primary = MaterialTheme.colorScheme.primary
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(20.dp)
-                .heightIn(max = 580.dp)
+                .heightIn(max = 620.dp)
         ) {
             Text(
-                "Find food — ${mealSlot.replaceFirstChar { it.uppercase() }}",
-                fontSize = 15.sp,
+                "Add to ${mealSlot.replaceFirstChar { it.uppercase() }}",
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = onSurface
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
-            Row(Modifier.fillMaxWidth()) {
-                BasicTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    textStyle = TextStyle(
-                        fontSize = 14.sp,
-                        color = onSurface
-                    ),
-                    cursorBrush = SolidColor(primary),
-                    modifier = Modifier
+            // Search box: name or barcode digits, search key or Find button.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier
                         .weight(1f)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 9.dp)
-                )
-                Spacer(Modifier.width(10.dp))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 12.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AppIconView(AppIcon.SEARCH, dim, iconSize = 18.dp, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.weight(1f)) {
+                        if (query.isEmpty()) {
+                            Text("Food name or barcode", fontSize = 15.sp, color = onSurface.copy(alpha = 0.4f))
+                        }
+                        BasicTextField(
+                            value = query,
+                            onValueChange = onQueryChange,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                            textStyle = TextStyle(fontSize = 15.sp, color = onSurface),
+                            cursorBrush = SolidColor(primary),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
                 Text(
                     "Find",
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = primary,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(primary)
                         .clickable { onSearch() }
-                        .padding(vertical = 9.dp, horizontal = 4.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 )
             }
 
             Spacer(Modifier.height(10.dp))
+
+            // Quick actions, all feeding the same results list below.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickAction(AppIcon.BARCODE, "Scan", Modifier.weight(1f), onScanBarcode)
+                if (aiEnabled) {
+                    QuickAction(AppIcon.CAMERA, "Photo", Modifier.weight(1f), onTakePhoto)
+                    QuickAction(AppIcon.PHOTO, "Gallery", Modifier.weight(1f), onPickPhoto)
+                }
+                QuickAction(AppIcon.PENCIL, "Manual", Modifier.weight(1f), onManual)
+            }
+            if (!aiEnabled) {
+                Text(
+                    "Add a Gemini key in Setup to log from a photo.",
+                    fontSize = 12.sp,
+                    color = onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
             Hairline()
 
             when {
                 searching -> Text(
-                    "Searching...",
+                    message ?: "Searching...",
                     fontSize = 14.sp,
                     color = dim,
                     modifier = Modifier.padding(vertical = 18.dp)
                 )
                 message != null -> Text(
                     message,
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     color = dim,
                     modifier = Modifier.padding(vertical = 18.dp)
                 )
                 results.isEmpty() -> Text(
-                    "Type a food and press Find — e.g. \"grilled chicken breast\"",
+                    "Search USDA and Open Food Facts together. Try \"grilled chicken\", or type or scan a package barcode.",
                     fontSize = 13.sp,
-                    color = faint,
+                    color = onSurface.copy(alpha = 0.5f),
                     modifier = Modifier.padding(vertical = 18.dp)
                 )
                 else -> LazyColumn(Modifier.weight(1f, fill = false)) {
@@ -128,56 +180,74 @@ fun FoodSearchDialog(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth()) {
-                Text(
-                    "Cancel",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = dim,
-                    modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
-                )
-                Spacer(Modifier.width(20.dp))
-                Text(
-                    "Enter manually",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = dim,
-                    modifier = Modifier.clickable { onManual() }.padding(4.dp)
-                )
-            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Cancel",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = dim,
+                modifier = Modifier.clickable { onDismiss() }.padding(vertical = 6.dp, horizontal = 4.dp)
+            )
         }
     }
 }
 
 @Composable
+private fun QuickAction(icon: AppIcon, label: String, modifier: Modifier, onClick: () -> Unit) {
+    val primary = MaterialTheme.colorScheme.primary
+    Column(
+        modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(primary.copy(alpha = 0.09f))
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AppIconView(icon, primary, iconSize = 22.dp)
+        Spacer(Modifier.height(4.dp))
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = primary)
+    }
+}
+
+/** Where a result came from, so the merged list stays readable. */
+private fun sourceLabel(source: String): Pair<String, Color> = when (source) {
+    "usda" -> "USDA" to SageAccent
+    "vision" -> "AI estimate" to WarnAmber
+    else -> "Open Food Facts" to InfoBlue
+}
+
+@Composable
 private fun ResultRow(food: ScannedFood, onClick: () -> Unit) {
     val onSurface = MaterialTheme.colorScheme.onSurface
-    val error = MaterialTheme.colorScheme.error
+    val (label, tone) = sourceLabel(food.source)
     Column(
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 9.dp, horizontal = 2.dp)
+            .padding(vertical = 10.dp, horizontal = 2.dp)
     ) {
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Text(
                 food.name,
                 fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
                 color = onSurface,
                 modifier = Modifier.weight(1f)
             )
-            if (food.source == "vision") {
-                Text(
-                    "Estimated",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = error
-                )
-            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                label,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = tone,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(tone.copy(alpha = 0.14f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            )
         }
         Text(
-            "${food.calories} kcal  ·  Fat ${food.fatGrams}g  ·  Protein ${food.proteinGrams}g  ·  Carbs ${food.carbGrams}g",
+            "${food.calories} kcal  \u00B7  Fat ${food.fatGrams}g  \u00B7  Protein ${food.proteinGrams}g  \u00B7  Carbs ${food.carbGrams}g",
             fontSize = 12.sp,
             color = onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(top = 3.dp)
@@ -186,7 +256,7 @@ private fun ResultRow(food: ScannedFood, onClick: () -> Unit) {
             Text(
                 it,
                 fontSize = 11.sp,
-                color = if (food.basisGrams != null) error else onSurface.copy(alpha = 0.45f),
+                color = onSurface.copy(alpha = 0.45f),
                 modifier = Modifier.padding(top = 2.dp)
             )
         }

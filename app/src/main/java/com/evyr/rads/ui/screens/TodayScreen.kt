@@ -98,9 +98,7 @@ fun TodayScreen() {
     // Default to the meal that matches the clock, not whatever comes first.
     var activeMeal by remember { mutableStateOf(vm.mealSlotForNow()) }
     var showAddDialog by remember { mutableStateOf(false) }
-    var showScanPicker by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
-    var showBarcodeEntry by remember { mutableStateOf(false) }
 
     // Keep the ViewModel aware of where scans should land.
     vm.activeMealSlot = activeMeal
@@ -215,7 +213,8 @@ fun TodayScreen() {
                     onDeleteEntry = { vm.deleteEntry(it) },
                     onAddToMeal = { slot ->
                         activeMeal = slot
-                        showScanPicker = true
+                        vm.resetSearch()
+                        showSearch = true
                     },
                     onOpenProfile = { activeTab = AppTab.SETUP }
                 )
@@ -264,37 +263,6 @@ fun TodayScreen() {
         )
     }
 
-    if (showScanPicker) {
-        ScanSourceDialog(
-            mealSlot = activeMeal,
-            aiEnabled = vm.aiEnabled(),
-            onSearch = { showScanPicker = false; vm.resetSearch(); showSearch = true },
-            onBarcode = { showScanPicker = false; launchBarcode() },
-            onTypeBarcode = { showScanPicker = false; showBarcodeEntry = true },
-            onCameraPhoto = { showScanPicker = false; cameraLauncher.launch(null) },
-            onGalleryPhoto = {
-                showScanPicker = false
-                galleryLauncher.launch(
-                    androidx.activity.result.PickVisualMediaRequest(
-                        ActivityResultContracts.PickVisualMedia.ImageOnly
-                    )
-                )
-            },
-            onManual = { showScanPicker = false; showAddDialog = true },
-            onDismiss = { showScanPicker = false }
-        )
-    }
-
-    if (showBarcodeEntry) {
-        BarcodeEntryDialog(
-            onSubmit = { code ->
-                showBarcodeEntry = false
-                vm.onBarcodeScanned(code)
-            },
-            onDismiss = { showBarcodeEntry = false }
-        )
-    }
-
     if (showSearch) {
         FoodSearchDialog(
             mealSlot = activeMeal,
@@ -302,9 +270,19 @@ fun TodayScreen() {
             results = searchResults,
             searching = searching,
             message = searchMessage,
+            aiEnabled = vm.aiEnabled(),
             onQueryChange = { vm.setSearchQuery(it) },
             onSearch = { vm.runSearch() },
             onPick = { vm.choosePortion(it) },
+            onScanBarcode = { launchBarcode() },
+            onTakePhoto = { cameraLauncher.launch(null) },
+            onPickPhoto = {
+                galleryLauncher.launch(
+                    androidx.activity.result.PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                    )
+                )
+            },
             onManual = { showSearch = false; showAddDialog = true },
             onDismiss = { showSearch = false; vm.resetSearch() }
         )
