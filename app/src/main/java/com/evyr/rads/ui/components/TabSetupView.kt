@@ -202,8 +202,6 @@ fun TabSetupView(
 
     Column(Modifier.fillMaxWidth().verticalScroll(scrollState)) {
 
-        SaveBar(dirty = dirty, justSaved = justSaved, error = error, onSave = { save() })
-
         SectionLabel("Units")
         ChoiceRow("Measurement", listOf("imperial", "metric"),
             if (imp) "imperial" else "metric") { choice ->
@@ -322,8 +320,6 @@ fun TabSetupView(
         )
         StatRow("Target", "${preview.calorieTarget()} kcal", emphasize = true)
 
-        SaveBar(dirty = dirty, justSaved = justSaved, error = error, onSave = { save() })
-
         // ---- Device settings: these save immediately, they aren't profile data ----
         Spacer(Modifier.height(4.dp))
         Hairline()
@@ -371,6 +367,10 @@ fun TabSetupView(
         StatRow("Build", BuildConfig.VERSION_CODE.toString())
         StatRow("Package", BuildConfig.APPLICATION_ID)
         StatRow("AI model", SecureStore.geminiModel(bootCtx))
+
+        Spacer(Modifier.height(16.dp))
+        Hairline()
+        SaveBar(dirty = dirty, justSaved = justSaved, error = error, onSave = { save() })
 
         Spacer(Modifier.height(12.dp))
     }
