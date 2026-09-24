@@ -324,7 +324,9 @@ fun TabSetupView(
         SectionLabel("Allergies")
         Text(
             "Tick any that apply. A match in a food's name or ingredients gets flagged " +
-                "before you log it -- these are always treated as a hard stop, not a caution.",
+                "before you log it -- these are always treated as a hard stop, not a caution. " +
+                "This is not a substitute for reading labels or checking with a restaurant -- " +
+                "it catches what's written in the food's name, not what touched it in the kitchen.",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(bottom = 6.dp)

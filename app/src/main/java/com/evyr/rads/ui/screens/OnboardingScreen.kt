@@ -31,7 +31,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.Allergen
 import com.evyr.rads.data.Condition
+import com.evyr.rads.data.CustomAllergen
 import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
 import com.evyr.rads.data.local.UserProfile
@@ -56,8 +58,10 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
     var activity by remember { mutableStateOf("moderate") }
     var fatLimit by remember { mutableStateOf("15") }
     var conditions by remember { mutableStateOf(emptySet<Condition>()) }
+    var allergens by remember { mutableStateOf(emptySet<Allergen>()) }
+    var customAllergensText by remember { mutableStateOf("") }
 
-    val lastStep = 5
+    val lastStep = 6
     val onSurface = MaterialTheme.colorScheme.onSurface
     val dim = onSurface.copy(alpha = 0.6f)
     val faint = onSurface.copy(alpha = 0.45f)
@@ -213,6 +217,37 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
                         }
                     }
                 }
+                6 -> {
+                    Prompt("Allergies")
+                    Note(
+                        "Tick any that apply. A match in a food's name or ingredients gets " +
+                            "flagged before you log it. This is not a substitute for reading labels " +
+                            "or checking with a restaurant -- it catches what's written in the food's " +
+                            "name, not what touched it in the kitchen. General guidance only -- always " +
+                            "follow your own or your doctor's judgment. You can change this later in Setup."
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Allergen.values().forEach { a ->
+                        val on = a in allergens
+                        Text(
+                            a.label,
+                            fontSize = 14.sp,
+                            fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                            color = if (on) primary else onSurface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { allergens = if (on) allergens - a else allergens + a }
+                                .background(
+                                    if (on) primary.copy(alpha = 0.12f) else Color.Transparent,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 8.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Note("Other allergies (comma-separated)")
+                    Field("e.g. mango, MSG", customAllergensText) { customAllergensText = it }
+                }
             }
 
             Spacer(Modifier.height(22.dp))
@@ -263,6 +298,11 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
                                         useImperial = imperial,
                                         fatWarnGramsPerMeal = fatLimit.toDoubleOrNull() ?: DEFAULT_FAT_WARN_GRAMS,
                                         conditions = Condition.toCsv(conditions),
+                                        allergens = Allergen.toCsv(allergens),
+                                        customAllergens = CustomAllergen.toCsv(
+                                            customAllergensText.split(",").map { it.trim() }
+                                                .filter { it.isNotBlank() }.map { CustomAllergen(it) }
+                                        ),
                                         onboarded = true
                                     )
                                 )
