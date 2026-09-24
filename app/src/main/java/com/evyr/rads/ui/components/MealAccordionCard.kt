@@ -38,6 +38,7 @@ import com.evyr.rads.data.ConditionFlags
 import com.evyr.rads.data.CustomAllergen
 import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.local.FoodLogEntry
+import com.evyr.rads.data.local.SafeFood
 import com.evyr.rads.ui.theme.*
 
 private data class MealTint(
@@ -100,6 +101,8 @@ fun MealAccordionCard(
     conditions: Set<Condition>,
     allergens: Set<Allergen>,
     customAllergens: List<CustomAllergen>,
+    safeKeys: Set<String>,
+    onToggleSafe: (FoodLogEntry) -> Unit,
     onToggle: () -> Unit,
     onSelectEntry: (FoodLogEntry) -> Unit,
     onDeleteEntry: (FoodLogEntry) -> Unit,
@@ -210,6 +213,8 @@ fun MealAccordionCard(
                         conditions = conditions,
                         allergens = allergens,
                         customAllergens = customAllergens,
+                        isSafe = SafeFood.keyFor(entry.name) in safeKeys,
+                        onToggleSafe = { onToggleSafe(entry) },
                         onClick = { onSelectEntry(entry) },
                         onDelete = { onDeleteEntry(entry) }
                     )
@@ -259,6 +264,8 @@ private fun FoodRow(
     conditions: Set<Condition>,
     allergens: Set<Allergen>,
     customAllergens: List<CustomAllergen>,
+    isSafe: Boolean,
+    onToggleSafe: () -> Unit,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -303,7 +310,11 @@ private fun FoodRow(
                     fontWeight = FontWeight.Medium,
                     color = if (worst == Verdict.OVER_LIMIT) error else onSurface
                 )
-                Text(sub, fontSize = 12.sp, color = onSurface.copy(alpha = 0.6f))
+                Text(
+                    if (isSafe) "$sub \u00B7 Safe" else sub,
+                    fontSize = 12.sp,
+                    color = onSurface.copy(alpha = 0.6f)
+                )
                 if (allergyHits.isNotEmpty()) {
                     Text(
                         "ALLERGY: " + allergyHits.joinToString(", ") { it.label },
@@ -360,6 +371,7 @@ private fun FoodRow(
                     modifier = Modifier.padding(vertical = 2.dp)
                 )
             }
+            AppAction(if (isSafe) "Remove from safe foods" else "Mark as safe food", onToggleSafe)
             AppAction("Delete entry", onDelete, warn = true)
         }
     }

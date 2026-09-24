@@ -37,3 +37,26 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL("ALTER TABLE user_profile ADD COLUMN customAllergens TEXT NOT NULL DEFAULT ''")
     }
 }
+
+/** v4 -> v5: safe foods list. Columns match SafeFood exactly for Room's check. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `safe_food` (" +
+                "`foodKey` TEXT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`calories` INTEGER NOT NULL, " +
+                "`fatGrams` REAL NOT NULL, " +
+                "`proteinGrams` REAL NOT NULL, " +
+                "`carbGrams` REAL NOT NULL, " +
+                "`saturatedFatGrams` REAL, " +
+                "`sugarGrams` REAL, " +
+                "`fiberGrams` REAL, " +
+                "`sodiumMg` REAL, " +
+                "`triggers` TEXT, " +
+                "`source` TEXT NOT NULL, " +
+                "`addedAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`foodKey`))"
+        )
+    }
+}

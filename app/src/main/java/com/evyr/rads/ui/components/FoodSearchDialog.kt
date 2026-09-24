@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.evyr.rads.data.FoodPortion
 import com.evyr.rads.data.ScannedFood
+import com.evyr.rads.data.local.SafeFood
 import com.evyr.rads.ui.theme.InfoBlue
 import com.evyr.rads.ui.theme.SageAccent
 import com.evyr.rads.ui.theme.WarnAmber
@@ -58,6 +59,9 @@ fun FoodSearchDialog(
     searching: Boolean,
     message: String?,
     aiEnabled: Boolean,
+    safeFoods: List<ScannedFood> = emptyList(),
+    quickFoods: List<ScannedFood> = emptyList(),
+    onRemoveSafe: (String) -> Unit = {},
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onPick: (ScannedFood) -> Unit,
@@ -166,6 +170,32 @@ fun FoodSearchDialog(
                     color = dim,
                     modifier = Modifier.padding(vertical = 18.dp)
                 )
+                // Nothing typed yet: offer safe foods, then the usual rotation.
+                results.isEmpty() && query.isBlank() &&
+                    (safeFoods.isNotEmpty() || quickFoods.isNotEmpty()) -> {
+                    val safeKeySet = safeFoods.map { SafeFood.keyFor(it.name) }.toSet()
+                    val recents = quickFoods.filter { SafeFood.keyFor(it.name) !in safeKeySet }
+                    LazyColumn(Modifier.weight(1f, fill = false)) {
+                        if (safeFoods.isNotEmpty()) {
+                            item { QuickHeader("Your safe foods") }
+                            items(safeFoods) { food ->
+                                ResultRow(
+                                    food,
+                                    badge = "Safe",
+                                    onRemove = { onRemoveSafe(SafeFood.keyFor(food.name)) }
+                                ) { onPick(food) }
+                                Hairline()
+                            }
+                        }
+                        if (recents.isNotEmpty()) {
+                            item { QuickHeader("Recent & frequent") }
+                            items(recents) { food ->
+                                ResultRow(food, badge = "Recent") { onPick(food) }
+                                Hairline()
+                            }
+                        }
+                    }
+                }
                 results.isEmpty() -> Text(
                     "Search USDA and Open Food Facts together. Try \"grilled chicken\", or type or scan a package barcode.",
                     fontSize = 13.sp,
@@ -217,9 +247,25 @@ private fun sourceLabel(source: String): Pair<String, Color> = when (source) {
 }
 
 @Composable
-private fun ResultRow(food: ScannedFood, onClick: () -> Unit) {
+private fun QuickHeader(text: String) {
+    Text(
+        text,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
+    )
+}
+
+@Composable
+private fun ResultRow(
+    food: ScannedFood,
+    badge: String? = null,
+    onRemove: (() -> Unit)? = null,
+    onClick: () -> Unit
+) {
     val onSurface = MaterialTheme.colorScheme.onSurface
-    val (label, tone) = sourceLabel(food.source)
+    val (label, tone) = if (badge != null) badge to SageAccent else sourceLabel(food.source)
     Column(
         Modifier
             .fillMaxWidth()
@@ -245,6 +291,16 @@ private fun ResultRow(food: ScannedFood, onClick: () -> Unit) {
                     .background(tone.copy(alpha = 0.14f))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             )
+            if (onRemove != null) {
+                Text(
+                    "\u2715",
+                    fontSize = 14.sp,
+                    color = onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier
+                        .clickable { onRemove() }
+                        .padding(start = 10.dp, end = 2.dp)
+                )
+            }
         }
         Text(
             "${food.calories} kcal  \u00B7  Fat ${food.fatGrams}g  \u00B7  Protein ${food.proteinGrams}g  \u00B7  Carbs ${food.carbGrams}g",

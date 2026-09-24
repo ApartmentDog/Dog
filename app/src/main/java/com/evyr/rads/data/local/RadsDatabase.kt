@@ -4,14 +4,15 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [UserProfile::class, FoodLogEntry::class, HealthSnapshot::class],
-    version = 4,
+    entities = [UserProfile::class, FoodLogEntry::class, HealthSnapshot::class, SafeFood::class],
+    version = 5,
     exportSchema = false
 )
 abstract class RadsDatabase : RoomDatabase() {
     abstract fun foodLogDao(): FoodLogDao
     abstract fun healthSnapshotDao(): HealthSnapshotDao
     abstract fun userProfileDao(): UserProfileDao
+    abstract fun safeFoodDao(): SafeFoodDao
 }
 
 // IMPORTANT: no destructive fallback migrations.

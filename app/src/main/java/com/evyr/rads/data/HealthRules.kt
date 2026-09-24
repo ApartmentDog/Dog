@@ -231,7 +231,13 @@ data class VerdictResult(
     /** Checks that couldn't run because the source had no data. Not warnings. */
     val skipped: List<String> = emptyList(),
     /** Allergen matches -- always the worst possible verdict when present. */
-    val allergyHits: List<AllergyFlag> = emptyList()
+    val allergyHits: List<AllergyFlag> = emptyList(),
+    /**
+     * Set when a food trips two or more separate things at once (an allergy,
+     * the meal fat limit, conditions). One sentence naming all of them, so
+     * the person doesn't have to add up separate sections to see the total.
+     */
+    val compoundSummary: String? = null
 )
 
 /** A per-meal amount rule for one condition. */
@@ -417,6 +423,18 @@ object VerdictRules {
         var overall = warnings.fold(fatVerdict) { acc, w -> worst(acc, w.severity) }
         if (allergyHits.isNotEmpty()) overall = Verdict.OVER_LIMIT
 
+        // Every separate way this food hits the person, worst first.
+        val hits = buildList {
+            if (allergyHits.isNotEmpty()) add("your ${allergyHits.joinToString(", ") { it.label }} allergy")
+            if (fatVerdict == Verdict.OVER_LIMIT) add("your meal fat limit")
+            warnings.filter { it.severity == Verdict.OVER_LIMIT }.forEach { add(it.condition.short) }
+            warnings.filter { it.severity == Verdict.CAUTION }.forEach { add("${it.condition.short} (caution)") }
+            if (fatVerdict == Verdict.CAUTION) add("near your meal fat limit")
+        }
+        val compoundSummary = if (hits.size >= 2) {
+            "This hits you ${hits.size} ways: " + hits.joinToString(", ") + "."
+        } else null
+
         val parts = mutableListOf<String>()
         if (allergyHits.isNotEmpty()) {
             parts += "ALLERGY: " + allergyHits.joinToString(", ") { it.label }
@@ -437,7 +455,8 @@ object VerdictRules {
             warnings = warnings,
             triggers = found,
             skipped = skipped.distinct(),
-            allergyHits = allergyHits
+            allergyHits = allergyHits,
+            compoundSummary = compoundSummary
         )
     }
 }

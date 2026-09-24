@@ -8,7 +8,9 @@ import com.evyr.rads.data.ScannedFood
 import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.VerdictResult
+import com.evyr.rads.data.TriggerDetector
 import com.evyr.rads.data.VerdictRules
+import com.evyr.rads.data.local.SafeFood
 import com.evyr.rads.data.local.DatabaseProvider
 import com.evyr.rads.data.remote.GeminiVision
 import com.evyr.rads.data.remote.OpenFoodFacts
@@ -63,6 +65,102 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         _viewDate.flatMapLatest { d -> foodDao.getEntriesForDay(startOf(d), endOf(d)) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // ---- History: trends on Stats, recents in the add sheet ----
+
+    /** The real date, for history windows. Rolls over in refreshDate(). */
+    private val _today = MutableStateFlow(LocalDate.now(zone))
+
+    /** Last 90 days of entries, newest first. One query feeds trends and recents. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val recentHistory: StateFlow<List<FoodLogEntry>> =
+        _today.flatMapLatest { d -> foodDao.getEntriesSince(startOf(d.minusDays(89))) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Last 30 days, for the Stats trend view. */
+    val last30Days: StateFlow<List<FoodLogEntry>> =
+        recentHistory.map { list ->
+            val cutoff = startOf(_today.value.minusDays(29))
+            list.filter { it.timestamp >= cutoff }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * The foods logged most often in the last 90 days (ties broken by most
+     * recent), each as it was last logged. Shown in the add sheet before you
+     * type anything, since most people eat the same handful of things.
+     */
+    val frequentFoods: StateFlow<List<ScannedFood>> =
+        recentHistory.map { list ->
+            list.groupBy { it.name.trim().lowercase() }
+                .values
+                .sortedWith(
+                    compareByDescending<List<FoodLogEntry>> { it.size }
+                        .thenByDescending { it.first().timestamp }
+                )
+                .take(8)
+                .map { group ->
+                    val latest = group.first() // list is newest-first
+                    latest.toScannedFood(
+                        if (group.size > 1) "Logged ${group.size} times. Amounts as you logged it last."
+                        else "Amounts as you logged it last time."
+                    )
+                }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // ---- Safe foods ----
+
+    private val safeDao = db.safeFoodDao()
+
+    val safeFoods: StateFlow<List<SafeFood>> =
+        safeDao.observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val safeKeys: StateFlow<Set<String>> =
+        safeFoods.map { list -> list.map { it.foodKey }.toSet() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    fun isSafe(name: String): Boolean = SafeFood.keyFor(name) in safeKeys.value
+
+    /** Add or remove a logged entry from the safe list. */
+    fun toggleSafe(entry: FoodLogEntry) {
+        viewModelScope.launch {
+            val key = SafeFood.keyFor(entry.name)
+            if (key in safeKeys.value) safeDao.delete(key)
+            else safeDao.upsert(
+                SafeFood(
+                    foodKey = key, name = entry.name.trim(), calories = entry.calories,
+                    fatGrams = entry.fatGrams, proteinGrams = entry.proteinGrams, carbGrams = entry.carbGrams,
+                    saturatedFatGrams = entry.saturatedFatGrams, sugarGrams = entry.sugarGrams,
+                    fiberGrams = entry.fiberGrams, sodiumMg = entry.sodiumMg,
+                    triggers = entry.triggers, source = entry.source,
+                    addedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    /** Add or remove a candidate (from search or scan) from the safe list. */
+    fun toggleSafe(food: ScannedFood) {
+        viewModelScope.launch {
+            val key = SafeFood.keyFor(food.name)
+            if (key in safeKeys.value) safeDao.delete(key)
+            else safeDao.upsert(
+                SafeFood(
+                    foodKey = key, name = food.name.trim(), calories = food.calories,
+                    fatGrams = food.fatGrams, proteinGrams = food.proteinGrams, carbGrams = food.carbGrams,
+                    saturatedFatGrams = food.saturatedFatGrams, sugarGrams = food.sugarGrams,
+                    fiberGrams = food.fiberGrams, sodiumMg = food.sodiumMg,
+                    triggers = TriggerDetector.detect(food.name, food.ingredients, food.tags)
+                        .joinToString(",") { it.key }.ifBlank { null },
+                    source = food.source,
+                    addedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    fun removeSafe(foodKey: String) {
+        viewModelScope.launch { safeDao.delete(foodKey) }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val healthToday: StateFlow<HealthSnapshot?> =
         _viewDate.flatMapLatest { d -> healthDao.observeDay(d.toEpochDay()) }
@@ -75,6 +173,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun refreshDate() {
         val now = LocalDate.now(zone)
+        if (_today.value != now) _today.value = now
         if (followToday && _viewDate.value != now) {
             _viewDate.value = now
             selectEntry(null)
@@ -494,4 +593,24 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             SyncStatus.ERROR
         }
     }
+
+    private fun parseTags(csv: String?): Set<String> =
+        csv.orEmpty().split(',').map { it.trim() }.filter { it.isNotBlank() }.toSet()
+
+    private fun FoodLogEntry.toScannedFood(note: String?) = ScannedFood(
+        name = name, calories = calories, fatGrams = fatGrams,
+        proteinGrams = proteinGrams, carbGrams = carbGrams,
+        saturatedFatGrams = saturatedFatGrams, sugarGrams = sugarGrams,
+        fiberGrams = fiberGrams, sodiumMg = sodiumMg,
+        tags = parseTags(triggers), servingNote = note, source = source
+    )
+
+    /** A safe-list item as a pickable candidate for the add sheet. */
+    fun safeAsScanned(food: SafeFood) = ScannedFood(
+        name = food.name, calories = food.calories, fatGrams = food.fatGrams,
+        proteinGrams = food.proteinGrams, carbGrams = food.carbGrams,
+        saturatedFatGrams = food.saturatedFatGrams, sugarGrams = food.sugarGrams,
+        fiberGrams = food.fiberGrams, sodiumMg = food.sodiumMg,
+        tags = parseTags(food.triggers), servingNote = "On your safe list.", source = food.source
+    )
 }

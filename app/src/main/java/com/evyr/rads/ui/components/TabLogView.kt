@@ -64,6 +64,8 @@ fun TabLogView(
     conditions: Set<Condition>,
     allergens: Set<com.evyr.rads.data.Allergen>,
     customAllergens: List<com.evyr.rads.data.CustomAllergen>,
+    safeKeys: Set<String>,
+    onToggleSafe: (FoodLogEntry) -> Unit,
     listState: LazyListState,
     onSelectMeal: (String) -> Unit,
     onSelectEntry: (FoodLogEntry) -> Unit,
@@ -127,6 +129,8 @@ fun TabLogView(
                     conditions = conditions,
                     allergens = allergens,
                     customAllergens = customAllergens,
+                    safeKeys = safeKeys,
+                    onToggleSafe = onToggleSafe,
                     onToggle = {
                         expanded.value =
                             if (slot in expanded.value) expanded.value - slot else expanded.value + slot

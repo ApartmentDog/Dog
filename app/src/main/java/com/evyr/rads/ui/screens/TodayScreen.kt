@@ -71,6 +71,10 @@ fun TodayScreen() {
     val portionOptions by vm.portionOptions.collectAsState()
     val viewDate by vm.viewDate.collectAsState()
     val isToday by vm.isViewingToday.collectAsState()
+    val history by vm.last30Days.collectAsState()
+    val frequentFoods by vm.frequentFoods.collectAsState()
+    val safeFoods by vm.safeFoods.collectAsState()
+    val safeKeys by vm.safeKeys.collectAsState()
 
     // Crossing midnight while the app sits in the background must roll the day.
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -209,6 +213,8 @@ fun TodayScreen() {
                     conditions = profile?.conditionSet() ?: emptySet(),
                     allergens = profile?.allergenSet() ?: emptySet(),
                     customAllergens = com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens),
+                    safeKeys = safeKeys,
+                    onToggleSafe = { vm.toggleSafe(it) },
                     listState = listState,
                     onSelectMeal = { activeMeal = it },
                     onSelectEntry = { vm.selectEntry(it.id) },
@@ -226,7 +232,8 @@ fun TodayScreen() {
                     entries = entries,
                     profile = profile,
                     health = health,
-                    mealSlots = MEAL_SLOTS
+                    mealSlots = MEAL_SLOTS,
+                    history = history
                 )
                 AppTab.SYNC -> TabSyncView(
                     scrollState = syncScroll,
@@ -273,6 +280,9 @@ fun TodayScreen() {
             searching = searching,
             message = searchMessage,
             aiEnabled = vm.aiEnabled(),
+            safeFoods = safeFoods.map { vm.safeAsScanned(it) },
+            quickFoods = frequentFoods,
+            onRemoveSafe = { vm.removeSafe(it) },
             onQueryChange = { vm.setSearchQuery(it) },
             onSearch = { vm.runSearch() },
             onPick = { vm.choosePortion(it) },
@@ -319,6 +329,8 @@ fun TodayScreen() {
                 food = s.food,
                 verdict = s.verdict,
                 mealSlot = activeMeal,
+                isSafeFood = com.evyr.rads.data.local.SafeFood.keyFor(s.food.name) in safeKeys,
+                onToggleSafe = { vm.toggleSafe(s.food) },
                 onDismiss = { vm.clearScan() },
                 onConfirm = { vm.commitScanned(it, activeMeal) }
             )

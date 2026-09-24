@@ -42,6 +42,8 @@ fun VerdictDialog(
     food: ScannedFood,
     verdict: VerdictResult,
     mealSlot: String,
+    isSafeFood: Boolean = false,
+    onToggleSafe: () -> Unit = {},
     onDismiss: () -> Unit,
     onConfirm: (ScannedFood) -> Unit
 ) {
@@ -107,6 +109,19 @@ fun VerdictDialog(
                 fontWeight = FontWeight.Bold,
                 color = stampColor
             )
+
+            verdict.compoundSummary?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(it, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = error)
+            }
+            if (isSafeFood) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "On your safe foods list. Every check above still ran.",
+                    fontSize = 12.sp,
+                    color = secondary
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
             verdict.reasons.forEach { r ->
@@ -202,6 +217,15 @@ fun VerdictDialog(
             EditRow("Fat g", fat, numeric = true) { fat = it }
             EditRow("Protein g", protein, numeric = true) { protein = it }
             EditRow("Carbs g", carbs, numeric = true) { carbs = it }
+
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (isSafeFood) "Remove from safe foods" else "Add to safe foods",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isSafeFood) dim else secondary,
+                modifier = Modifier.clickable { onToggleSafe() }.padding(vertical = 4.dp)
+            )
 
             food.barcode?.let {
                 Spacer(Modifier.height(4.dp))
