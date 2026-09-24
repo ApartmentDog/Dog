@@ -324,6 +324,7 @@ fun TabSetupView(
         Spacer(Modifier.height(4.dp))
         Hairline()
         val bootCtx = LocalContext.current
+        var keyError by remember { mutableStateOf<String?>(null) }
 
         SectionLabel("Food database")
         Text(
@@ -333,9 +334,13 @@ fun TabSetupView(
             modifier = Modifier.padding(bottom = 4.dp)
         )
         var usdaKey by remember { mutableStateOf(SecureStore.usdaKey(bootCtx)) }
-        EditField("USDA key", usdaKey) {
-            usdaKey = it
-            SecureStore.setUsdaKey(bootCtx, it)
+        EditField("USDA key", usdaKey) { typed ->
+            usdaKey = typed
+            SecureStore.setUsdaKey(bootCtx, typed)
+            // Read back rather than trust the local var, so a save that
+            // silently failed shows up here instead of only on next visit.
+            val confirmed = SecureStore.usdaKey(bootCtx)
+            keyError = if (confirmed != typed.trim()) "Couldn't save the USDA key. Try again." else null
         }
         StatRow("DB key", if (usdaKey.isNotBlank()) "Set" else "Demo (limited)")
 
@@ -350,15 +355,26 @@ fun TabSetupView(
         )
         var apiKey by remember { mutableStateOf(SecureStore.geminiKey(bootCtx)) }
         var model by remember { mutableStateOf(SecureStore.geminiModel(bootCtx)) }
-        EditField("API key", apiKey) {
-            apiKey = it
-            SecureStore.setGeminiKey(bootCtx, it)
+        EditField("API key", apiKey) { typed ->
+            apiKey = typed
+            SecureStore.setGeminiKey(bootCtx, typed)
+            val confirmed = SecureStore.geminiKey(bootCtx)
+            keyError = if (confirmed != typed.trim()) "Couldn't save the API key. Try again." else null
         }
         EditField("Model", model) {
             model = it
             SecureStore.setGeminiModel(bootCtx, it)
         }
         StatRow("AI status", if (apiKey.isNotBlank()) "Enabled" else "Off")
+        keyError?.let {
+            Text(
+                it,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
 
         Spacer(Modifier.height(4.dp))
         Hairline()
