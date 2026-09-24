@@ -118,6 +118,24 @@ fun VerdictDialog(
                 )
             }
 
+            // ---- Allergy hits: always shown first, always the worst case ----
+            if (verdict.allergyHits.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Hairline()
+                Text(
+                    "Allergy match",
+                    fontSize = 12.sp,
+                    color = dim,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                Text(
+                    verdict.allergyHits.joinToString(", ") { it.label },
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = error
+                )
+            }
+
             // ---- Condition checks ----
             if (verdict.warnings.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))

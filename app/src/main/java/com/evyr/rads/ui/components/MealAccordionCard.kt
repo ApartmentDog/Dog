@@ -31,8 +31,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.Allergen
+import com.evyr.rads.data.AllergyChecker
 import com.evyr.rads.data.Condition
 import com.evyr.rads.data.ConditionFlags
+import com.evyr.rads.data.CustomAllergen
 import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.ui.theme.*
@@ -95,6 +98,8 @@ fun MealAccordionCard(
     selectedEntryId: Long?,
     fatWarnGrams: Double,
     conditions: Set<Condition>,
+    allergens: Set<Allergen>,
+    customAllergens: List<CustomAllergen>,
     onToggle: () -> Unit,
     onSelectEntry: (FoodLogEntry) -> Unit,
     onDeleteEntry: (FoodLogEntry) -> Unit,
@@ -109,7 +114,8 @@ fun MealAccordionCard(
     val mealFat = entries.sumOf { it.fatGrams }
     val overFat = entries.isNotEmpty() && mealFat >= fatWarnGrams
     val mealWarnings = ConditionFlags.forMeal(entries, conditions)
-    val hasAlert = overFat || mealWarnings.any { it.severity == Verdict.OVER_LIMIT }
+    val mealAllergyHits = entries.flatMap { AllergyChecker.check(it, allergens, customAllergens) }.distinct()
+    val hasAlert = overFat || mealWarnings.any { it.severity == Verdict.OVER_LIMIT } || mealAllergyHits.isNotEmpty()
 
     Column(
         Modifier
@@ -187,6 +193,14 @@ fun MealAccordionCard(
                         color = severityColor(w.severity)
                     )
                 }
+                if (mealAllergyHits.isNotEmpty()) {
+                    Text(
+                        "ALLERGY: " + mealAllergyHits.joinToString(", ") { it.label },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = error
+                    )
+                }
 
                 entries.forEach { entry ->
                     FoodRow(
@@ -194,6 +208,8 @@ fun MealAccordionCard(
                         tint = tint,
                         selected = entry.id == selectedEntryId,
                         conditions = conditions,
+                        allergens = allergens,
+                        customAllergens = customAllergens,
                         onClick = { onSelectEntry(entry) },
                         onDelete = { onDeleteEntry(entry) }
                     )
@@ -241,6 +257,8 @@ private fun FoodRow(
     tint: MealTint,
     selected: Boolean,
     conditions: Set<Condition>,
+    allergens: Set<Allergen>,
+    customAllergens: List<CustomAllergen>,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -248,7 +266,10 @@ private fun FoodRow(
     val error = MaterialTheme.colorScheme.error
     val rowShape = RoundedCornerShape(12.dp)
     val flags = ConditionFlags.forEntry(entry, conditions)
-    val worst = flags.maxByOrNull { it.severity.ordinal }?.severity
+    val allergyHits = AllergyChecker.check(entry, allergens, customAllergens)
+    // An allergy is always the worst case, ahead of any condition tier.
+    val worst = if (allergyHits.isNotEmpty()) Verdict.OVER_LIMIT
+        else flags.maxByOrNull { it.severity.ordinal }?.severity
 
     val sub = buildList {
         add("${trim(entry.fatGrams)}g fat")
@@ -283,6 +304,15 @@ private fun FoodRow(
                     color = if (worst == Verdict.OVER_LIMIT) error else onSurface
                 )
                 Text(sub, fontSize = 12.sp, color = onSurface.copy(alpha = 0.6f))
+                if (allergyHits.isNotEmpty()) {
+                    Text(
+                        "ALLERGY: " + allergyHits.joinToString(", ") { it.label },
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = error,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
                 if (flags.isNotEmpty()) {
                     Row(Modifier.padding(top = 2.dp)) {
                         flags.forEachIndexed { i, w ->
@@ -313,6 +343,15 @@ private fun FoodRow(
             entry.fiberGrams?.let { StatRow("Fiber", "${trim(it)} g") }
             entry.sodiumMg?.let { StatRow("Sodium", "${it.toInt()} mg") }
             StatRow("Source", entry.source.replaceFirstChar { it.uppercase() })
+            if (allergyHits.isNotEmpty()) {
+                Text(
+                    "Allergy match: " + allergyHits.joinToString(", ") { it.label },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = error,
+                    modifier = Modifier.padding(vertical = 2.dp)
+                )
+            }
             flags.forEach { w ->
                 Text(
                     "${w.condition.label}: ${w.details.joinToString(", ")}",

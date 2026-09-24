@@ -35,7 +35,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.evyr.rads.BuildConfig
+import com.evyr.rads.data.Allergen
 import com.evyr.rads.data.Condition
+import com.evyr.rads.data.CustomAllergen
 import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.Units
 import com.evyr.rads.data.local.UserProfile
@@ -60,7 +62,9 @@ private data class SetupDraft(
     val rate: String,
     val activity: String,
     val fatLimit: String,
-    val conditions: Set<Condition>
+    val conditions: Set<Condition>,
+    val allergens: Set<Allergen>,
+    val customAllergensText: String
 ) {
     companion object {
         fun from(p: UserProfile): SetupDraft {
@@ -79,7 +83,9 @@ private data class SetupDraft(
                 rate = trim(p.rateLbsPerWeek),
                 activity = p.activityLevel,
                 fatLimit = trim(p.fatWarnGramsPerMeal),
-                conditions = p.conditionSet()
+                conditions = p.conditionSet(),
+                allergens = p.allergenSet(),
+                customAllergensText = CustomAllergen.parseCsv(p.customAllergens).joinToString(", ") { it.label }
             )
         }
     }
@@ -132,7 +138,11 @@ private data class SetupDraft(
             rateLbsPerWeek = rateV,
             activityLevel = activity,
             fatWarnGramsPerMeal = fatV,
-            conditions = Condition.toCsv(conditions)
+            conditions = Condition.toCsv(conditions),
+            allergens = Allergen.toCsv(allergens),
+            customAllergens = CustomAllergen.toCsv(
+                customAllergensText.split(",").map { it.trim() }.filter { it.isNotBlank() }.map { CustomAllergen(it) }
+            )
         ) to null
     }
 
@@ -307,6 +317,45 @@ fun TabSetupView(
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
+        }
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
+        SectionLabel("Allergies")
+        Text(
+            "Tick any that apply. A match in a food's name or ingredients gets flagged " +
+                "before you log it -- these are always treated as a hard stop, not a caution.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        Allergen.values().forEach { a ->
+            val on = a in d.allergens
+            Text(
+                a.label,
+                fontSize = 14.sp,
+                fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable {
+                        edit {
+                            it.copy(allergens = if (on) it.allergens - a else it.allergens + a)
+                        }
+                    }
+                    .background(if (on) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Other allergies (comma-separated)",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+        EditField("e.g. mango, MSG", d.customAllergensText) { v ->
+            edit { it.copy(customAllergensText = v) }
         }
 
         Spacer(Modifier.height(4.dp))

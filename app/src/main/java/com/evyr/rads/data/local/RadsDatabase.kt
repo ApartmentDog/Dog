@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [UserProfile::class, FoodLogEntry::class, HealthSnapshot::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class RadsDatabase : RoomDatabase() {

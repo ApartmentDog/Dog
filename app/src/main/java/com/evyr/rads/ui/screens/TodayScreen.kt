@@ -207,6 +207,8 @@ fun TodayScreen() {
                     selectedEntry = selectedEntry,
                     fatWarnGrams = fatLimit,
                     conditions = profile?.conditionSet() ?: emptySet(),
+                    allergens = profile?.allergenSet() ?: emptySet(),
+                    customAllergens = com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens),
                     listState = listState,
                     onSelectMeal = { activeMeal = it },
                     onSelectEntry = { vm.selectEntry(it.id) },

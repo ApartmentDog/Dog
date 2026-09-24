@@ -29,3 +29,11 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         db.execSQL("ALTER TABLE user_profile ADD COLUMN conditions TEXT NOT NULL DEFAULT ''")
     }
 }
+
+/** v3 -> v4: allergens and custom allergens on profile. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE user_profile ADD COLUMN allergens TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE user_profile ADD COLUMN customAllergens TEXT NOT NULL DEFAULT ''")
+    }
+}

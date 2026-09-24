@@ -362,7 +362,9 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             food = food,
             mealEntries = entries.value.filter { it.mealSlot == mealSlot },
             fatLimitPerMeal = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS,
-            conditions = profile?.conditionSet() ?: emptySet()
+            conditions = profile?.conditionSet() ?: emptySet(),
+            allergens = profile?.allergenSet() ?: emptySet(),
+            customAllergens = com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens)
         )
     }
 

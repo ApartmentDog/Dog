@@ -123,6 +123,11 @@ enum class Condition(
         "celiac", "CELIAC / GLUTEN-FREE", "CELIAC",
         "gluten — wheat, barley, rye, most breads, pasta and batters",
         mapOf(Trigger.GLUTEN to Verdict.OVER_LIMIT)
+    ),
+    GALLBLADDER(
+        "gallbladder", "GALLBLADDER DISEASE", "GALLBLADDER",
+        "fried food, saturated fat, and large meals — the standard triggers for gallbladder attacks",
+        mapOf(Trigger.FRIED to Verdict.CAUTION)
     );
 
     companion object {
@@ -155,6 +160,8 @@ object Thresholds {
     const val REFLUX_MEAL_KCAL_OVER = 950
     const val HERNIA_MEAL_KCAL_CAUTION = 600
     const val HERNIA_MEAL_KCAL_OVER = 850
+    const val GALLBLADDER_MEAL_KCAL_CAUTION = 600
+    const val GALLBLADDER_MEAL_KCAL_OVER = 850
 }
 
 object TriggerDetector {
@@ -222,7 +229,9 @@ data class VerdictResult(
     val warnings: List<ConditionWarning> = emptyList(),
     val triggers: Set<Trigger> = emptySet(),
     /** Checks that couldn't run because the source had no data. Not warnings. */
-    val skipped: List<String> = emptyList()
+    val skipped: List<String> = emptyList(),
+    /** Allergen matches -- always the worst possible verdict when present. */
+    val allergyHits: List<AllergyFlag> = emptyList()
 )
 
 /** A per-meal amount rule for one condition. */
@@ -259,6 +268,12 @@ private val AMOUNT_RULES = listOf(
         Thresholds.SODIUM_CAUTION_MG, Thresholds.SODIUM_OVER_MG,
         { it.sodiumMg }, { it.sodiumMg }),
     AmountRule(Condition.CHOLESTEROL, "sat fat", "g",
+        Thresholds.SATFAT_CAUTION_G, Thresholds.SATFAT_OVER_G,
+        { it.saturatedFatGrams }, { it.saturatedFatGrams }),
+    AmountRule(Condition.GALLBLADDER, "meal size", "kcal",
+        Thresholds.GALLBLADDER_MEAL_KCAL_CAUTION.toDouble(), Thresholds.GALLBLADDER_MEAL_KCAL_OVER.toDouble(),
+        { it.calories.toDouble() }, { it.calories.toDouble() }),
+    AmountRule(Condition.GALLBLADDER, "sat fat", "g",
         Thresholds.SATFAT_CAUTION_G, Thresholds.SATFAT_OVER_G,
         { it.saturatedFatGrams }, { it.saturatedFatGrams })
 )
@@ -360,7 +375,9 @@ object VerdictRules {
         food: ScannedFood,
         mealEntries: List<FoodLogEntry>,
         fatLimitPerMeal: Double,
-        conditions: Set<Condition>
+        conditions: Set<Condition>,
+        allergens: Set<Allergen> = emptySet(),
+        customAllergens: List<CustomAllergen> = emptyList()
     ): VerdictResult {
         val reasons = mutableListOf<String>()
 
@@ -394,9 +411,16 @@ object VerdictRules {
         }
         val warnings = collector.build()
 
-        val overall = warnings.fold(fatVerdict) { acc, w -> worst(acc, w.severity) }
+        // ---- Allergies: always OVER_LIMIT, checked separately from conditions ----
+        val allergyHits = AllergyChecker.check(food, allergens, customAllergens)
+
+        var overall = warnings.fold(fatVerdict) { acc, w -> worst(acc, w.severity) }
+        if (allergyHits.isNotEmpty()) overall = Verdict.OVER_LIMIT
 
         val parts = mutableListOf<String>()
+        if (allergyHits.isNotEmpty()) {
+            parts += "ALLERGY: " + allergyHits.joinToString(", ") { it.label }
+        }
         when (fatVerdict) {
             Verdict.OVER_LIMIT -> parts += "OVER MEAL FAT LIMIT"
             Verdict.CAUTION -> parts += "NEAR FAT LIMIT"
@@ -412,7 +436,8 @@ object VerdictRules {
             reasons = reasons,
             warnings = warnings,
             triggers = found,
-            skipped = skipped.distinct()
+            skipped = skipped.distinct(),
+            allergyHits = allergyHits
         )
     }
 }
