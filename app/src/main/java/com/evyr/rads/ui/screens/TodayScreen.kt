@@ -287,7 +287,14 @@ fun TodayScreen() {
             onSearch = { vm.runSearch() },
             onPick = { vm.choosePortion(it) },
             onScanBarcode = { launchBarcode() },
-            onTakePhoto = { cameraLauncher.launch(null) },
+            onTakePhoto = {
+                // No camera app on the device throws ActivityNotFoundException.
+                runCatching { cameraLauncher.launch(null) }.onFailure {
+                    android.widget.Toast.makeText(
+                        context, "Couldn't open a camera app on this phone.", android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
             onPickPhoto = {
                 galleryLauncher.launch(
                     androidx.activity.result.PickVisualMediaRequest(

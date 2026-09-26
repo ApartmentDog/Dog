@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
-    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Deliberately NOT declared. Photos are taken by handing off to the phone's
+         camera app, which needs no permission. But if CAMERA is declared and
+         not granted, Android throws a SecurityException on that hand-off
+         instead of prompting, which crashed the Photo button. Barcode scanning
+         uses Google's code scanner, which runs its own camera. tools:node
+         removes it even if a library tries to merge it back in. -->
+    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Required on Android 11+ so the app can see and launch Health Connect. -->
