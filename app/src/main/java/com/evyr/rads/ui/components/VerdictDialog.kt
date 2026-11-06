@@ -77,9 +77,14 @@ fun VerdictDialog(
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
                 .padding(20.dp)
-                .heightIn(max = 560.dp)
-                .verticalScroll(rememberScrollState())
+                .heightIn(max = 600.dp)
         ) {
+          // Details scroll; the Log / Discard footer below stays pinned.
+          Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+          ) {
             Text(
                 "Assessment — ${mealSlot.replaceFirstChar { it.uppercase() }}",
                 fontSize = 12.sp,
@@ -183,11 +188,15 @@ fun VerdictDialog(
             }
 
             if (verdict.skipped.isNotEmpty()) {
+                // Missing data means the check is incomplete, not that the food
+                // is fine, so this is shown at reading size in the caution tone.
                 Text(
-                    "Not checked (no data): " + verdict.skipped.joinToString(", "),
-                    fontSize = 11.sp,
-                    color = faint,
-                    modifier = Modifier.padding(top = 4.dp)
+                    "Incomplete: couldn't check " + verdict.skipped.joinToString(", ") +
+                        " (this source has no data), so treat the result as incomplete.",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = primary,
+                    modifier = Modifier.padding(top = 6.dp)
                 )
             }
 
@@ -236,36 +245,26 @@ fun VerdictDialog(
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth()) {
-                Text(
-                    "Discard",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = dim,
-                    modifier = Modifier.clickable { onDismiss() }.padding(6.dp)
-                )
-                Spacer(Modifier.width(24.dp))
-                Text(
-                    if (verdict.verdict == Verdict.OVER_LIMIT) "Log anyway" else "Log it",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (verdict.verdict == Verdict.OVER_LIMIT) error else primary,
-                    modifier = Modifier
-                        .clickable {
-                            onConfirm(
-                                food.copy(
-                                    name = name.trim().ifBlank { food.name },
-                                    calories = calories.toIntOrNull() ?: 0,
-                                    fatGrams = fat.toDoubleOrNull() ?: 0.0,
-                                    proteinGrams = protein.toDoubleOrNull() ?: 0.0,
-                                    carbGrams = carbs.toDoubleOrNull() ?: 0.0
-                                )
-                            )
-                        }
-                        .padding(6.dp)
-                )
-            }
+          }
+
+            Spacer(Modifier.height(12.dp))
+            DialogActions(
+                secondaryText = "Discard",
+                onSecondary = onDismiss,
+                primaryText = if (verdict.verdict == Verdict.OVER_LIMIT) "Log anyway" else "Log it",
+                primaryColor = if (verdict.verdict == Verdict.OVER_LIMIT) error else primary,
+                onPrimary = {
+                    onConfirm(
+                        food.copy(
+                            name = name.trim().ifBlank { food.name },
+                            calories = calories.toIntOrNull() ?: 0,
+                            fatGrams = fat.toDoubleOrNull() ?: 0.0,
+                            proteinGrams = protein.toDoubleOrNull() ?: 0.0,
+                            carbGrams = carbs.toDoubleOrNull() ?: 0.0
+                        )
+                    )
+                }
+            )
         }
     }
 }

@@ -303,7 +303,7 @@ private fun ResultRow(
             }
         }
         Text(
-            "${food.calories} kcal  \u00B7  Fat ${food.fatGrams}g  \u00B7  Protein ${food.proteinGrams}g  \u00B7  Carbs ${food.carbGrams}g",
+            "${food.calories} kcal \u00B7 F ${food.fatGrams}g \u00B7 P ${food.proteinGrams}g \u00B7 C ${food.carbGrams}g",
             fontSize = 12.sp,
             color = onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(top = 3.dp)
@@ -560,46 +560,33 @@ fun QuantityDialog(
             food.sodiumMg?.let { StatRow("Sodium", "${kotlin.math.round(it * multiplier).toInt()} mg") }
 
             Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth()) {
-                Text(
-                    "Back",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = dim,
-                    modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
-                )
-                Spacer(Modifier.width(24.dp))
-                Text(
-                    "Assess",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = primary,
-                    modifier = Modifier
-                        .clickable {
-                            onConfirm(
-                                food.copy(
-                                    calories = (food.calories * multiplier).toInt(),
-                                    fatGrams = round1(food.fatGrams * multiplier),
-                                    proteinGrams = round1(food.proteinGrams * multiplier),
-                                    carbGrams = round1(food.carbGrams * multiplier),
-                                    saturatedFatGrams = food.saturatedFatGrams
-                                        ?.let { round1(it * multiplier) },
-                                    sugarGrams = food.sugarGrams?.let { round1(it * multiplier) },
-                                    fiberGrams = food.fiberGrams?.let { round1(it * multiplier) },
-                                    sodiumMg = food.sodiumMg?.let { kotlin.math.round(it * multiplier) },
-                                    servingNote = when {
-                                        chosenPortion != null ->
-                                            "${trimQty(entered)} x ${chosenPortion!!.label}"
-                                        gramsMode -> "${trimQty(entered)} ${unit.label}"
-                                        else -> food.servingNote
-                                    },
-                                    basisGrams = null
-                                )
-                            )
-                        }
-                        .padding(4.dp)
-                )
-            }
+            DialogActions(
+                secondaryText = "Back",
+                onSecondary = onDismiss,
+                primaryText = "Check",
+                onPrimary = {
+                    onConfirm(
+                        food.copy(
+                            calories = (food.calories * multiplier).toInt(),
+                            fatGrams = round1(food.fatGrams * multiplier),
+                            proteinGrams = round1(food.proteinGrams * multiplier),
+                            carbGrams = round1(food.carbGrams * multiplier),
+                            saturatedFatGrams = food.saturatedFatGrams
+                                ?.let { round1(it * multiplier) },
+                            sugarGrams = food.sugarGrams?.let { round1(it * multiplier) },
+                            fiberGrams = food.fiberGrams?.let { round1(it * multiplier) },
+                            sodiumMg = food.sodiumMg?.let { kotlin.math.round(it * multiplier) },
+                            servingNote = when {
+                                chosenPortion != null ->
+                                    "${trimQty(entered)} x ${chosenPortion!!.label}"
+                                gramsMode -> "${trimQty(entered)} ${unit.label}"
+                                else -> food.servingNote
+                            },
+                            basisGrams = null
+                        )
+                    )
+                }
+            )
         }
     }
 }

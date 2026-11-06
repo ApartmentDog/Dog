@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -140,6 +141,57 @@ fun AppTabBar(
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             )
             Spacer(Modifier.width(4.dp))
+        }
+    }
+}
+
+/**
+ * Dialog footer: a quiet text action on the left, one filled primary action
+ * on the right. Min 48dp tall so both are easy thumb targets.
+ */
+@Composable
+fun DialogActions(
+    secondaryText: String,
+    onSecondary: () -> Unit,
+    primaryText: String,
+    onPrimary: () -> Unit,
+    primaryColor: Color = MaterialTheme.colorScheme.primary
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .heightIn(min = 48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(onClick = onSecondary)
+                .padding(horizontal = 16.dp),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            Text(
+                secondaryText,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Box(
+            Modifier
+                .weight(1f)
+                .heightIn(min = 48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(primaryColor)
+                .clickable(onClick = onPrimary),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            Text(
+                primaryText,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
         }
     }
 }

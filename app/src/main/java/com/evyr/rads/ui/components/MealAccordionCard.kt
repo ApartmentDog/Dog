@@ -165,6 +165,21 @@ fun MealAccordionCard(
                 Text("$total", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = tint.text)
                 Spacer(Modifier.width(8.dp))
             }
+            // Empty, collapsed meal: add straight from the header (one tap, not two).
+            if (entries.isEmpty() && !expanded) {
+                Text(
+                    "+ Add",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = tint.text,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(tint.chip)
+                        .clickable { onAdd() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+            }
             AppIconView(
                 icon = if (expanded) AppIcon.CHEVRON_DOWN else AppIcon.CHEVRON_RIGHT,
                 color = tint.text,

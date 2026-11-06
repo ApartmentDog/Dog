@@ -333,7 +333,9 @@ private fun FlagCollector.amounts(
         val partial = values.any { it == null }
         add(
             rule.condition, level,
-            "${rule.label} ${fmt(total)}${rule.unit} this meal (limit ~${fmt(rule.over)}${rule.unit})" +
+            "${rule.label} ${fmt(total)}${rule.unit} this meal (" +
+                (if (level == Verdict.OVER_LIMIT) "over" else "nearing") +
+                " the ~${fmt(rule.over)}${rule.unit} limit)" +
                 if (partial) ", some items lack data" else ""
         )
     }
