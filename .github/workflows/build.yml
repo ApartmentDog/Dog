@@ -2,7 +2,7 @@ name: Build RADS APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, onboarding-home]
   workflow_dispatch:
 
 jobs:
