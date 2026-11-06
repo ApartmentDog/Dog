@@ -139,10 +139,10 @@ fun FoodSearchDialog(
             // Quick actions, all feeding the same results list below.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 QuickAction(AppIcon.BARCODE, "Scan", Modifier.weight(1f), onScanBarcode)
-                if (aiEnabled) {
-                    QuickAction(AppIcon.CAMERA, "Photo", Modifier.weight(1f), onTakePhoto)
-                    QuickAction(AppIcon.PHOTO, "Gallery", Modifier.weight(1f), onPickPhoto)
-                }
+                // Always shown. Without a Gemini key the tap explains what's missing
+                // instead of the buttons silently not existing.
+                QuickAction(AppIcon.CAMERA, "Photo", Modifier.weight(1f), onTakePhoto)
+                QuickAction(AppIcon.PHOTO, "Gallery", Modifier.weight(1f), onPickPhoto)
                 QuickAction(AppIcon.PENCIL, "Manual", Modifier.weight(1f), onManual)
             }
             if (!aiEnabled) {

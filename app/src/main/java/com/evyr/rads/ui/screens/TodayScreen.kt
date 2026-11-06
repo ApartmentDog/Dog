@@ -294,6 +294,13 @@ fun TodayScreen() {
             onPick = { vm.choosePortion(it) },
             onScanBarcode = { launchBarcode() },
             onTakePhoto = {
+                if (!vm.aiEnabled()) {
+                    android.widget.Toast.makeText(
+                        context, "Photo logging needs a Gemini key. Add one in Setup.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    return@FoodSearchDialog
+                }
                 // No camera app on the device throws ActivityNotFoundException.
                 runCatching { cameraLauncher.launch(null) }.onFailure {
                     android.widget.Toast.makeText(
@@ -302,6 +309,13 @@ fun TodayScreen() {
                 }
             },
             onPickPhoto = {
+                if (!vm.aiEnabled()) {
+                    android.widget.Toast.makeText(
+                        context, "Photo logging needs a Gemini key. Add one in Setup.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    return@FoodSearchDialog
+                }
                 galleryLauncher.launch(
                     androidx.activity.result.PickVisualMediaRequest(
                         ActivityResultContracts.PickVisualMedia.ImageOnly
