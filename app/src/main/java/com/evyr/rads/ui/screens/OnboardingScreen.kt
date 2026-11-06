@@ -1,6 +1,8 @@
 package com.evyr.rads.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,38 +37,159 @@ import androidx.compose.ui.unit.sp
 import com.evyr.rads.data.Allergen
 import com.evyr.rads.data.Condition
 import com.evyr.rads.data.CustomAllergen
+import com.evyr.rads.data.ScannedFood
 import com.evyr.rads.data.Units
+import com.evyr.rads.data.Verdict
+import com.evyr.rads.data.VerdictRules
 import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
+import com.evyr.rads.data.local.DetailLevel
+import com.evyr.rads.data.local.Focus
 import com.evyr.rads.data.local.UserProfile
+import com.evyr.rads.ui.components.DialogActions
+import java.util.Locale
+
+/**
+ * Onboarding decides what the home screen looks like. It opens with what the
+ * person wants help with, then asks only the follow-ups that answer needs:
+ * no conditions step unless they picked conditions, no body measurements
+ * unless they want a weight or fitness goal. Every question changes
+ * something they will see.
+ */
+private enum class Step {
+    WELCOME, INTENT, CONDITIONS, FAT, ALLERGIES, BODY, GOAL, DETAIL, SAMPLE, HOME
+}
+
+private val FAT_RELEVANT = setOf(Condition.GALLBLADDER, Condition.FATTY_LIVER, Condition.CHOLESTEROL)
+
+private fun friendlyName(c: Condition): String = when (c) {
+    Condition.REFLUX -> "Heartburn / acid reflux (GERD)"
+    Condition.HIATAL_HERNIA -> "Hiatal hernia"
+    Condition.IBS -> "IBS"
+    Condition.LACTOSE -> "Lactose intolerance"
+    Condition.CELIAC -> "Celiac disease / gluten"
+    Condition.GALLBLADDER -> "Gallbladder issues / gallstones"
+    Condition.FATTY_LIVER -> "Fatty liver"
+    Condition.HYPERTENSION -> "High blood pressure"
+    Condition.CHOLESTEROL -> "High cholesterol"
+    Condition.DIABETES -> "Diabetes / blood sugar"
+    Condition.GOUT -> "Gout"
+    else -> c.label
+}
+
+private val CONDITION_GROUPS: List<Pair<String, List<Condition>>> = listOf(
+    "Stomach and gut" to listOf(
+        Condition.REFLUX, Condition.HIATAL_HERNIA, Condition.IBS, Condition.LACTOSE, Condition.CELIAC
+    ),
+    "Gallbladder and liver" to listOf(Condition.GALLBLADDER, Condition.FATTY_LIVER),
+    "Heart and blood sugar" to listOf(Condition.HYPERTENSION, Condition.CHOLESTEROL, Condition.DIABETES),
+    "Joints" to listOf(Condition.GOUT)
+)
 
 @Composable
 fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
-    var step by remember { mutableStateOf(0) }
-    var imperial by remember { mutableStateOf(true) }
+    var stepIndex by remember { mutableStateOf(0) }
 
     var name by remember { mutableStateOf("") }
+    var agreed by remember { mutableStateOf(false) }
+    var focus by remember { mutableStateOf(emptySet<Focus>()) }
+    var conditions by remember { mutableStateOf(emptySet<Condition>()) }
+    var allergens by remember { mutableStateOf(emptySet<Allergen>()) }
+    var customAllergensText by remember { mutableStateOf("") }
+
+    var fatFromDoctor by remember { mutableStateOf(false) }
+    var fatLimit by remember { mutableStateOf("15") }
+
+    // Locale picks the starting units; the person can flip them on the body step.
+    var imperial by remember { mutableStateOf(Locale.getDefault().country == "US") }
     var age by remember { mutableStateOf("") }
     var sex by remember { mutableStateOf("unspecified") }
-
     var feet by remember { mutableStateOf("") }
     var inches by remember { mutableStateOf("") }
     var heightCmText by remember { mutableStateOf("") }
     var weightText by remember { mutableStateOf("") }
 
-    var goal by remember { mutableStateOf("lose") }
+    // No goal is preselected for weight users. Muscle-only starts on "gain".
+    var goalChoice by remember { mutableStateOf<String?>(null) }
     var goalWeightText by remember { mutableStateOf("") }
     var rate by remember { mutableStateOf("1.0") }
     var activity by remember { mutableStateOf("moderate") }
-    var fatLimit by remember { mutableStateOf("15") }
-    var conditions by remember { mutableStateOf(emptySet<Condition>()) }
-    var allergens by remember { mutableStateOf(emptySet<Allergen>()) }
-    var customAllergensText by remember { mutableStateOf("") }
 
-    val lastStep = 6
+    var detailChoice by remember { mutableStateOf<String?>(null) }
+
+    val wantsBody = Focus.WEIGHT in focus || Focus.MUSCLE in focus
+    val wantsSafety = Focus.CONDITION in focus || Focus.ALLERGY in focus
+    val goal = goalChoice ?: if (Focus.MUSCLE in focus && Focus.WEIGHT !in focus) "gain" else null
+    // Safety-first people get plain verdicts by default; number people get detail.
+    val suggestedDetail = if (wantsBody) DetailLevel.DETAILED.key else DetailLevel.SIMPLE.key
+    val detail = detailChoice ?: suggestedDetail
+
+    val steps = buildList {
+        add(Step.WELCOME)
+        add(Step.INTENT)
+        if (Focus.CONDITION in focus) add(Step.CONDITIONS)
+        if (Focus.CONDITION in focus && conditions.any { it in FAT_RELEVANT }) add(Step.FAT)
+        if (Focus.ALLERGY in focus) add(Step.ALLERGIES)
+        if (wantsBody) {
+            add(Step.BODY)
+            add(Step.GOAL)
+        }
+        add(Step.DETAIL)
+        if (wantsSafety) add(Step.SAMPLE)
+        add(Step.HOME)
+    }
+    val step = steps[stepIndex.coerceIn(0, steps.lastIndex)]
+    val isLast = stepIndex >= steps.lastIndex
+
     val onSurface = MaterialTheme.colorScheme.onSurface
     val dim = onSurface.copy(alpha = 0.6f)
-    val faint = onSurface.copy(alpha = 0.45f)
     val primary = MaterialTheme.colorScheme.primary
+
+    fun heightCm(): Double = if (imperial) {
+        Units.feetInchesToCm(feet.toIntOrNull() ?: 0, inches.toIntOrNull() ?: 0)
+    } else heightCmText.toDoubleOrNull() ?: 0.0
+
+    fun draftProfile(): UserProfile {
+        val effectiveFocus = focus
+        val enteredFat = if (fatFromDoctor) fatLimit.toDoubleOrNull()?.takeIf { it > 0 } else null
+        return UserProfile(
+            name = name.trim(),
+            age = age.toIntOrNull() ?: 0,
+            sex = sex,
+            heightCm = if (wantsBody) heightCm() else 0.0,
+            weightKg = if (wantsBody) Units.parseWeightToKg(weightText, imperial) ?: 0.0 else 0.0,
+            goal = if (wantsBody) (goal ?: "maintain") else "maintain",
+            goalWeightKg = if (wantsBody) Units.parseWeightToKg(goalWeightText, imperial) ?: 0.0 else 0.0,
+            rateLbsPerWeek = rate.toDoubleOrNull() ?: 1.0,
+            activityLevel = activity,
+            useImperial = imperial,
+            fatWarnGramsPerMeal = enteredFat ?: DEFAULT_FAT_WARN_GRAMS,
+            fatLimitFromDoctor = enteredFat != null,
+            conditions = if (Focus.CONDITION in effectiveFocus) Condition.toCsv(conditions) else "",
+            allergens = if (Focus.ALLERGY in effectiveFocus) Allergen.toCsv(allergens) else "",
+            customAllergens = if (Focus.ALLERGY in effectiveFocus) CustomAllergen.toCsv(
+                customAllergensText.split(",").map { it.trim() }
+                    .filter { it.isNotBlank() }.map { CustomAllergen(it) }
+            ) else "",
+            focus = Focus.toCsv(effectiveFocus),
+            detailLevel = detail,
+            onboarded = true
+        )
+    }
+
+    val canContinue = when (step) {
+        Step.WELCOME -> agreed
+        Step.BODY -> (age.toIntOrNull() ?: 0) > 0 && heightCm() > 0 &&
+            (Units.parseWeightToKg(weightText, imperial) ?: 0.0) > 0
+        Step.GOAL -> goal != null &&
+            (goal == "maintain" || (Units.parseWeightToKg(goalWeightText, imperial) ?: 0.0) > 0)
+        Step.FAT -> !fatFromDoctor || (fatLimit.toDoubleOrNull() ?: 0.0) > 0
+        else -> true
+    }
+
+    BackHandler(enabled = stepIndex > 0) { stepIndex-- }
+
+    val scroll = rememberScrollState()
+    LaunchedEffect(step) { scroll.scrollTo(0) }
 
     Box(
         Modifier
@@ -73,245 +197,374 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
             .background(MaterialTheme.colorScheme.background)
             .padding(20.dp)
     ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            Text(
-                "R.A.D.S.",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = onSurface
-            )
-            Text(
-                "Let's get you set up.",
-                fontSize = 14.sp,
-                color = dim
-            )
-            Spacer(Modifier.height(14.dp))
-
-            // Step progress bar
+        Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth()) {
-                for (i in 0..lastStep) {
+                steps.forEachIndexed { i, _ ->
                     Box(
                         Modifier
                             .weight(1f)
                             .height(4.dp)
                             .background(
-                                if (i <= step) primary else MaterialTheme.colorScheme.outline,
+                                if (i <= stepIndex) primary else MaterialTheme.colorScheme.outline,
                                 RoundedCornerShape(2.dp)
                             )
                     )
-                    if (i != lastStep) Spacer(Modifier.width(4.dp))
+                    if (i != steps.lastIndex) Spacer(Modifier.width(4.dp))
                 }
             }
             Spacer(Modifier.height(20.dp))
 
-            when (step) {
-                0 -> {
-                    Prompt("Units")
-                    Choices("Measurement", listOf("imperial", "metric"),
-                        if (imperial) "imperial" else "metric") {
-                        imperial = it == "imperial"
-                    }
-                    Note(
-                        if (imperial) "Pounds and feet/inches."
-                        else "Kilograms and centimeters."
-                    )
-                }
-                1 -> {
-                    Prompt("First, a little about you")
-                    Note("Just a few things so we can build a calorie goal that fits your life.")
-                    Spacer(Modifier.height(10.dp))
-                    Field("Name", name) { name = it }
-                    Field("Age", age, numeric = true) { age = it }
-                    Choices("Sex", listOf("male", "female", "unspecified"), sex) { sex = it }
-                }
-                2 -> {
-                    Prompt("Body")
-                    if (imperial) {
-                        Row(Modifier.fillMaxWidth()) {
-                            Box(Modifier.weight(1f)) {
-                                Field("Height ft", feet, numeric = true) { feet = it }
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            Box(Modifier.weight(1f)) {
-                                Field("in", inches, numeric = true) { inches = it }
-                            }
-                        }
-                        Field("Weight lb", weightText, numeric = true) { weightText = it }
-                    } else {
-                        Field("Height cm", heightCmText, numeric = true) { heightCmText = it }
-                        Field("Weight kg", weightText, numeric = true) { weightText = it }
-                    }
-                }
-                3 -> {
-                    Prompt("What's your goal?")
-                    Note("There's no wrong answer. Slower tends to stick — but you know you best.")
-                    Spacer(Modifier.height(10.dp))
-                    Choices("Goal", listOf("lose", "maintain", "gain"), goal) { goal = it }
-                    if (goal != "maintain") {
-                        Field(
-                            "Target ${if (imperial) "lb" else "kg"}",
-                            goalWeightText,
-                            numeric = true
-                        ) { goalWeightText = it }
-                        Choices(
-                            "Rate (lb/week)",
-                            listOf("0.5", "1.0", "1.5", "2.0"),
-                            rate
-                        ) { rate = it }
-                        val r = rate.toDoubleOrNull() ?: 1.0
+            Column(
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(scroll)
+            ) {
+                when (step) {
+                    Step.WELCOME -> {
+                        Text("R.A.D.S.", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = onSurface)
+                        Spacer(Modifier.height(6.dp))
+                        Prompt("Eat with confidence.")
                         Note(
-                            "${if (goal == "lose") "Losing" else "Gaining"} $r lb/week " +
-                                "≈ ${((r * 3500) / 7).toInt()} kcal/day " +
-                                (if (goal == "lose") "deficit." else "surplus.") +
-                                if (r > 2.0) " Above 2 lb/week is rarely advisable." else ""
+                            "Tell us what you need help with and we'll build your home screen around it. " +
+                                "It takes about a minute, and you can change everything later."
                         )
+                        Spacer(Modifier.height(12.dp))
+                        Field("Your name", name) { name = it }
+                        Note("Optional.")
+                        Spacer(Modifier.height(14.dp))
+                        SelectCard(
+                            title = "I understand",
+                            blurb = "R.A.D.S. gives general food guidance, not medical advice. It can be wrong, " +
+                                "especially for photo estimates and restaurant food. Your doctor's " +
+                                "instructions always come first.",
+                            selected = agreed
+                        ) { agreed = !agreed }
                     }
-                    Choices(
-                        "Activity",
-                        listOf("sedentary", "light", "moderate", "active", "very_active"),
-                        activity
-                    ) { activity = it }
-                }
-                4 -> {
-                    Prompt("Fat ceiling")
-                    Note("Maximum fat grams in any single meal. Checked per meal, never as a daily total.")
-                    Spacer(Modifier.height(8.dp))
-                    Field("Grams / meal", fatLimit, numeric = true) { fatLimit = it }
-                }
-                5 -> {
-                    Prompt("Health conditions")
-                    Note(
-                        "Optional. Tick any that apply and foods get flagged for them before you log. " +
-                            "General guidance only — your doctor's instructions override these. " +
-                            "You can change this later in Setup."
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Condition.values().forEach { c ->
-                        val on = c in conditions
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { conditions = if (on) conditions - c else conditions + c }
-                                .background(
-                                    if (on) primary.copy(alpha = 0.12f) else Color.Transparent,
-                                    RoundedCornerShape(10.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                c.label,
-                                fontSize = 14.sp,
-                                fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-                                color = if (on) primary else onSurface
-                            )
-                            Text(
-                                "Watches: " + c.watches,
-                                fontSize = 12.sp,
-                                color = faint,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                    }
-                }
-                6 -> {
-                    Prompt("Allergies")
-                    Note(
-                        "Tick any that apply. A match in a food's name or ingredients gets " +
-                            "flagged before you log it. This is not a substitute for reading labels " +
-                            "or checking with a restaurant -- it catches what's written in the food's " +
-                            "name, not what touched it in the kitchen. General guidance only -- always " +
-                            "follow your own or your doctor's judgment. You can change this later in Setup."
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Allergen.values().forEach { a ->
-                        val on = a in allergens
-                        Text(
-                            a.label,
-                            fontSize = 14.sp,
-                            fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-                            color = if (on) primary else onSurface,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { allergens = if (on) allergens - a else allergens + a }
-                                .background(
-                                    if (on) primary.copy(alpha = 0.12f) else Color.Transparent,
-                                    RoundedCornerShape(10.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Note("Other allergies (comma-separated)")
-                    Field("e.g. mango, MSG", customAllergensText) { customAllergensText = it }
-                }
-            }
 
-            Spacer(Modifier.height(22.dp))
-            Row(Modifier.fillMaxWidth()) {
-                if (step > 0) {
-                    Text(
-                        "Back",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = dim,
-                        modifier = Modifier.clickable { step-- }.padding(8.dp)
-                    )
-                    Spacer(Modifier.width(18.dp))
-                }
-                Text(
-                    if (step < lastStep) "Next" else "Get started",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = primary,
-                    modifier = Modifier
-                        .clickable {
-                            if (step < lastStep) {
-                                step++
-                            } else {
-                                val heightCm = if (imperial) {
-                                    Units.feetInchesToCm(
-                                        feet.toIntOrNull() ?: 0,
-                                        inches.toIntOrNull() ?: 0
-                                    )
-                                } else heightCmText.toDoubleOrNull() ?: 0.0
-
-                                val weightKg =
-                                    Units.parseWeightToKg(weightText, imperial) ?: 0.0
-                                val goalKg =
-                                    Units.parseWeightToKg(goalWeightText, imperial) ?: 0.0
-
-                                onComplete(
-                                    UserProfile(
-                                        name = name.trim(),
-                                        age = age.toIntOrNull() ?: 0,
-                                        sex = sex,
-                                        heightCm = heightCm,
-                                        weightKg = weightKg,
-                                        goal = goal,
-                                        goalWeightKg = goalKg,
-                                        rateLbsPerWeek = rate.toDoubleOrNull() ?: 1.0,
-                                        activityLevel = activity,
-                                        useImperial = imperial,
-                                        fatWarnGramsPerMeal = fatLimit.toDoubleOrNull() ?: DEFAULT_FAT_WARN_GRAMS,
-                                        conditions = Condition.toCsv(conditions),
-                                        allergens = Allergen.toCsv(allergens),
-                                        customAllergens = CustomAllergen.toCsv(
-                                            customAllergensText.split(",").map { it.trim() }
-                                                .filter { it.isNotBlank() }.map { CustomAllergen(it) }
-                                        ),
-                                        onboarded = true
-                                    )
-                                )
+                    Step.INTENT -> {
+                        Prompt("What do you want help with?")
+                        Note("Pick all that apply. You can skip this and we'll set up the basics.")
+                        Spacer(Modifier.height(8.dp))
+                        Focus.values().forEach { f ->
+                            SelectCard(f.title, f.blurb, f in focus) {
+                                focus = if (f in focus) focus - f else focus + f
                             }
                         }
-                        .padding(8.dp)
-                )
+                    }
+
+                    Step.CONDITIONS -> {
+                        Prompt("Which conditions do you manage?")
+                        Note(
+                            "Foods get flagged for these before you log them. Not sure, or none of these? " +
+                                "Just tap Next. This is general guidance only."
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        val grouped = CONDITION_GROUPS.flatMap { it.second }.toSet()
+                        val groups = CONDITION_GROUPS +
+                            listOf("Other" to Condition.values().filter { it !in grouped })
+                        groups.filter { it.second.isNotEmpty() }.forEach { (title, list) ->
+                            Text(
+                                title,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = dim,
+                                modifier = Modifier.padding(top = 12.dp, bottom = 6.dp)
+                            )
+                            list.forEach { c ->
+                                SelectCard(friendlyName(c), null, c in conditions) {
+                                    conditions = if (c in conditions) conditions - c else conditions + c
+                                }
+                            }
+                        }
+                    }
+
+                    Step.FAT -> {
+                        Prompt("Fat in a single meal")
+                        Note("Did your doctor or dietitian give you a limit for fat in one meal?")
+                        Spacer(Modifier.height(8.dp))
+                        SelectCard(
+                            "Not sure, use a general starting point",
+                            "We start at ${DEFAULT_FAT_WARN_GRAMS.toInt()} g per meal. It isn't a " +
+                                "prescription, and you can change it any time in Setup.",
+                            !fatFromDoctor
+                        ) { fatFromDoctor = false }
+                        SelectCard(
+                            "Yes, I have a number",
+                            null,
+                            fatFromDoctor
+                        ) { fatFromDoctor = true }
+                        if (fatFromDoctor) {
+                            Field("Grams / meal", fatLimit, numeric = true) { fatLimit = it }
+                        }
+                    }
+
+                    Step.ALLERGIES -> {
+                        Prompt("Which allergies do you have?")
+                        Note(
+                            "A match in a food's name or ingredients gets flagged before you log it. " +
+                                "This catches what's written on the label, not what touched the food in a " +
+                                "kitchen, so keep reading labels and asking restaurants."
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SelectCard("None of these", null, allergens.isEmpty() && customAllergensText.isBlank()) {
+                            allergens = emptySet()
+                            customAllergensText = ""
+                        }
+                        Allergen.values().forEach { a ->
+                            SelectCard(a.label, null, a in allergens) {
+                                allergens = if (a in allergens) allergens - a else allergens + a
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Note("Anything else? Separate with commas.")
+                        Field("e.g. mango, MSG", customAllergensText) { customAllergensText = it }
+                    }
+
+                    Step.BODY -> {
+                        Prompt("About you")
+                        Note("Used only to work out a calorie goal that fits you. It stays on your phone.")
+                        Spacer(Modifier.height(8.dp))
+                        Choices("Units", listOf("imperial", "metric"), if (imperial) "imperial" else "metric") {
+                            imperial = it == "imperial"
+                        }
+                        Field("Age", age, numeric = true) { age = it }
+                        Choices("Sex", listOf("male", "female", "unspecified"), sex) { sex = it }
+                        if (imperial) {
+                            Row(Modifier.fillMaxWidth()) {
+                                Box(Modifier.weight(1f)) {
+                                    Field("Height ft", feet, numeric = true) { feet = it }
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.weight(1f)) {
+                                    Field("in", inches, numeric = true) { inches = it }
+                                }
+                            }
+                            Field("Weight lb", weightText, numeric = true) { weightText = it }
+                        } else {
+                            Field("Height cm", heightCmText, numeric = true) { heightCmText = it }
+                            Field("Weight kg", weightText, numeric = true) { weightText = it }
+                        }
+                    }
+
+                    Step.GOAL -> {
+                        Prompt("What's your goal?")
+                        Note("Slower tends to stick, but you know you best.")
+                        Spacer(Modifier.height(8.dp))
+                        listOf("lose" to "Lose weight", "maintain" to "Maintain", "gain" to "Gain weight / muscle")
+                            .forEach { (key, label) ->
+                                SelectCard(label, null, goal == key) { goalChoice = key }
+                            }
+                        if (goal != null && goal != "maintain") {
+                            Field(
+                                "Target ${if (imperial) "lb" else "kg"}",
+                                goalWeightText,
+                                numeric = true
+                            ) { goalWeightText = it }
+                            Choices("Rate (lb/week)", listOf("0.5", "1.0", "1.5", "2.0"), rate) { rate = it }
+                            val r = rate.toDoubleOrNull() ?: 1.0
+                            Note(
+                                "${if (goal == "lose") "Losing" else "Gaining"} $r lb/week " +
+                                    "≈ ${((r * 3500) / 7).toInt()} kcal/day " +
+                                    (if (goal == "lose") "deficit." else "surplus.")
+                            )
+                        }
+                        Choices(
+                            "Activity",
+                            listOf("sedentary", "light", "moderate", "active", "very_active"),
+                            activity
+                        ) { activity = it }
+                    }
+
+                    Step.DETAIL -> {
+                        Prompt("How much detail do you want?")
+                        Note("You can switch any time in Setup.")
+                        Spacer(Modifier.height(8.dp))
+                        SelectCard(
+                            "Keep it simple",
+                            "Each food gets a plain verdict: okay, be careful, or skip, with one reason.",
+                            detail == DetailLevel.SIMPLE.key
+                        ) { detailChoice = DetailLevel.SIMPLE.key }
+                        SelectCard(
+                            "Show me the numbers",
+                            "Verdicts plus grams, limits, and which conditions are flagged.",
+                            detail == DetailLevel.DETAILED.key
+                        ) { detailChoice = DetailLevel.DETAILED.key }
+                    }
+
+                    Step.SAMPLE -> SampleStep(
+                        conditions = if (Focus.CONDITION in focus) conditions else emptySet(),
+                        allergens = if (Focus.ALLERGY in focus) allergens else emptySet(),
+                        fatLimit = draftProfile().fatWarnGramsPerMeal,
+                        simple = detail == DetailLevel.SIMPLE.key
+                    )
+
+                    Step.HOME -> {
+                        val p = draftProfile()
+                        val layout = p.homeLayout()
+                        Prompt(if (p.name.isNotBlank()) "Here's your home, ${p.name}" else "Here's your home screen")
+                        Note("Built from your answers:")
+                        Spacer(Modifier.height(8.dp))
+                        if (layout.showCheckHero) {
+                            Bullet("A big \"Can I eat this?\" button. Scan a barcode, snap a menu or plate, or search.")
+                        }
+                        Bullet(
+                            if (layout.simple) "Your meals, with a plain verdict on every food."
+                            else "Your meals, with verdicts, numbers, and condition tags on every food."
+                        )
+                        if (layout.showCalorieRing) {
+                            Bullet(
+                                "A calorie ring and protein/carb bars" +
+                                    if (wantsBody) ", aiming for about ${p.calorieTarget()} kcal a day." else "."
+                            )
+                        }
+                        Bullet("Change any of this later in Setup.")
+                    }
+                }
             }
+
+            Spacer(Modifier.height(12.dp))
+            DialogActions(
+                secondaryText = if (stepIndex > 0) "Back" else null,
+                onSecondary = { if (stepIndex > 0) stepIndex-- },
+                primaryText = if (isLast) "Start" else "Next",
+                primaryEnabled = canContinue,
+                onPrimary = {
+                    if (!isLast) stepIndex++ else onComplete(draftProfile())
+                }
+            )
         }
+    }
+}
+
+@Composable
+private fun SampleStep(
+    conditions: Set<Condition>,
+    allergens: Set<Allergen>,
+    fatLimit: Double,
+    simple: Boolean
+) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val sampleName = buildString {
+        append("Fried chicken sandwich with tomato")
+        allergens.firstOrNull()?.matchWords?.firstOrNull()?.let { append(", topped with $it") }
+    }
+    val food = remember(sampleName) {
+        ScannedFood(
+            name = sampleName,
+            calories = 650, fatGrams = 28.0, proteinGrams = 30.0, carbGrams = 50.0,
+            saturatedFatGrams = 7.0, sugarGrams = 6.0, sodiumMg = 1400.0,
+            source = "sample"
+        )
+    }
+    val verdict = remember(food, conditions, allergens, fatLimit) {
+        VerdictRules.evaluate(food, emptyList(), fatLimit, conditions, allergens)
+    }
+    val stampText = when (verdict.verdict) {
+        Verdict.PASS -> "Looks fine"
+        Verdict.CAUTION -> "Use caution"
+        Verdict.OVER_LIMIT -> "Over your limit"
+    }
+    val stampColor = when (verdict.verdict) {
+        Verdict.PASS -> MaterialTheme.colorScheme.secondary
+        Verdict.CAUTION -> MaterialTheme.colorScheme.primary
+        Verdict.OVER_LIMIT -> MaterialTheme.colorScheme.error
+    }
+
+    Prompt("Here's how a check looks")
+    Note("An example food, checked against what you just told us. Real checks work the same way.")
+    Spacer(Modifier.height(10.dp))
+    Text(food.name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = onSurface)
+    Spacer(Modifier.height(8.dp))
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .border(2.dp, stampColor, RoundedCornerShape(12.dp))
+            .padding(vertical = 14.dp),
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        Text(stampText, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = stampColor)
+    }
+    Spacer(Modifier.height(8.dp))
+    if (verdict.allergyHits.isNotEmpty()) {
+        Text(
+            "Allergy match: " + verdict.allergyHits.joinToString(", ") { it.label },
+            fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error
+        )
+    }
+    if (simple) {
+        val reasons = buildList {
+            verdict.warnings.take(2).forEach { w ->
+                add("${w.condition.short}: ${w.details.firstOrNull().orEmpty()}")
+            }
+            if (isEmpty()) add(verdict.headline.lowercase().replaceFirstChar { it.uppercase() })
+        }
+        reasons.forEach { Bullet(it) }
+    } else {
+        verdict.compoundSummary?.let {
+            Text(it, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+        }
+        verdict.warnings.forEach { w ->
+            Text(
+                w.condition.label,
+                fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                color = onSurface, modifier = Modifier.padding(top = 6.dp)
+            )
+            Text(
+                w.details.joinToString(", "),
+                fontSize = 12.sp, color = onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.padding(start = 10.dp)
+            )
+        }
+        verdict.reasons.take(1).forEach { Bullet(it) }
+    }
+}
+
+@Composable
+private fun SelectCard(
+    title: String,
+    blurb: String?,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val primary = MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .background(if (selected) primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface, shape)
+            .border(
+                if (selected) 2.dp else 1.dp,
+                if (selected) primary else MaterialTheme.colorScheme.outline,
+                shape
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 14.dp)
+    ) {
+        Text(
+            title,
+            fontSize = 15.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) primary else onSurface
+        )
+        if (blurb != null) {
+            Text(
+                blurb,
+                fontSize = 12.sp,
+                color = onSurface.copy(alpha = 0.65f),
+                modifier = Modifier.padding(top = 3.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun Bullet(text: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text("•", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(8.dp))
+        Text(text, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

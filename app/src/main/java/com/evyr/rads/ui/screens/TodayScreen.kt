@@ -224,7 +224,13 @@ fun TodayScreen() {
                         vm.resetSearch()
                         showSearch = true
                     },
-                    onOpenProfile = { activeTab = AppTab.SETUP }
+                    onOpenProfile = { activeTab = AppTab.SETUP },
+                    layout = (profile ?: com.evyr.rads.data.local.UserProfile()).homeLayout(),
+                    onCheckFood = {
+                        activeMeal = vm.mealSlotForNow()
+                        vm.resetSearch()
+                        showSearch = true
+                    }
                 )
                 AppTab.STATS -> TabStatsView(
                     scrollState = statsScroll,

@@ -60,3 +60,12 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         )
     }
 }
+
+/** v5 -> v6: onboarding choices (focus areas, detail level, doctor-set fat limit). */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE user_profile ADD COLUMN focus TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE user_profile ADD COLUMN detailLevel TEXT NOT NULL DEFAULT 'detailed'")
+        db.execSQL("ALTER TABLE user_profile ADD COLUMN fatLimitFromDoctor INTEGER NOT NULL DEFAULT 0")
+    }
+}

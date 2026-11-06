@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evyr.rads.data.Condition
 import com.evyr.rads.data.Verdict
+import com.evyr.rads.data.local.HomeLayout
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.ui.theme.Terracotta
 import java.time.LocalDate
@@ -71,7 +72,9 @@ fun TabLogView(
     onSelectEntry: (FoodLogEntry) -> Unit,
     onDeleteEntry: (FoodLogEntry) -> Unit,
     onAddToMeal: (String) -> Unit,
-    onOpenProfile: () -> Unit
+    onOpenProfile: () -> Unit,
+    layout: HomeLayout,
+    onCheckFood: () -> Unit
 ) {
     // activeMeal, entries and listState are still accepted so the call site
     // stays the same shape; the accordion shows every meal at once and
@@ -83,8 +86,8 @@ fun TabLogView(
 
     // Protein/carbs have no stored goals, so the bars scale off the calorie
     // target with a typical split. Visual fill only; fat is the tracked limit.
-    val proteinTarget = (calorieTarget * 0.24 / 4).coerceAtLeast(1.0)
-    val carbTarget = (calorieTarget * 0.44 / 4).coerceAtLeast(1.0)
+    val proteinTarget = (calorieTarget * layout.proteinShare / 4).coerceAtLeast(1.0)
+    val carbTarget = (calorieTarget * layout.carbShare / 4).coerceAtLeast(1.0)
 
     // Meals that already have items start open, like the PWA's expandedMeals.
     // Keyed on the date so switching days recomputes it.
@@ -109,7 +112,9 @@ fun TabLogView(
             dayProtein = dayProtein,
             proteinTarget = proteinTarget,
             dayCarbs = dayCarbs,
-            carbTarget = carbTarget
+            carbTarget = carbTarget,
+            showStats = layout.showCalorieRing,
+            onCheckFood = if (layout.showCheckHero) onCheckFood else null
         )
 
         Column(
@@ -130,6 +135,7 @@ fun TabLogView(
                     allergens = allergens,
                     customAllergens = customAllergens,
                     safeKeys = safeKeys,
+                    simple = layout.simple,
                     onToggleSafe = onToggleSafe,
                     onToggle = {
                         expanded.value =
@@ -162,7 +168,9 @@ private fun LogHero(
     dayProtein: Double,
     proteinTarget: Double,
     dayCarbs: Double,
-    carbTarget: Double
+    carbTarget: Double,
+    showStats: Boolean,
+    onCheckFood: (() -> Unit)?
 ) {
     Box(
         Modifier
@@ -243,17 +251,49 @@ private fun LogHero(
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            if (onCheckFood != null) {
+                Spacer(Modifier.height(18.dp))
+                CheckFoodButton(onCheckFood)
+            }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CalorieRing(eaten = dayCals, target = calorieTarget)
-                Spacer(Modifier.width(18.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MacroBarRow(emoji = "\uD83E\uDD69", label = "Protein", value = dayProtein, target = proteinTarget)
-                    MacroBarRow(emoji = "\uD83C\uDF5E", label = "Carbs", value = dayCarbs, target = carbTarget)
+            if (showStats) {
+                Spacer(Modifier.height(18.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CalorieRing(eaten = dayCals, target = calorieTarget)
+                    Spacer(Modifier.width(18.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        MacroBarRow(emoji = "\uD83E\uDD69", label = "Protein", value = dayProtein, target = proteinTarget)
+                        MacroBarRow(emoji = "\uD83C\uDF5E", label = "Carbs", value = dayCarbs, target = carbTarget)
+                    }
                 }
             }
         }
+    }
+}
+
+/** The safety-first home's main action: check a food before eating or logging it. */
+@Composable
+private fun CheckFoodButton(onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp)
+    ) {
+        Text(
+            "Can I eat this?",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Terracotta
+        )
+        Text(
+            "Scan a barcode, snap a menu or plate, or search",
+            fontSize = 13.sp,
+            color = Terracotta.copy(alpha = 0.75f),
+            modifier = Modifier.padding(top = 2.dp)
+        )
     }
 }
 

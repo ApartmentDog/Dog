@@ -40,6 +40,8 @@ import com.evyr.rads.data.Condition
 import com.evyr.rads.data.CustomAllergen
 import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.Units
+import com.evyr.rads.data.local.DetailLevel
+import com.evyr.rads.data.local.Focus
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.ui.theme.*
 
@@ -64,7 +66,9 @@ private data class SetupDraft(
     val fatLimit: String,
     val conditions: Set<Condition>,
     val allergens: Set<Allergen>,
-    val customAllergensText: String
+    val customAllergensText: String,
+    val focus: Set<Focus>,
+    val detailLevel: String
 ) {
     companion object {
         fun from(p: UserProfile): SetupDraft {
@@ -85,7 +89,9 @@ private data class SetupDraft(
                 fatLimit = trim(p.fatWarnGramsPerMeal),
                 conditions = p.conditionSet(),
                 allergens = p.allergenSet(),
-                customAllergensText = CustomAllergen.parseCsv(p.customAllergens).joinToString(", ") { it.label }
+                customAllergensText = CustomAllergen.parseCsv(p.customAllergens).joinToString(", ") { it.label },
+                focus = p.focusSet(),
+                detailLevel = DetailLevel.fromKey(p.detailLevel).key
             )
         }
     }
@@ -138,6 +144,10 @@ private data class SetupDraft(
             rateLbsPerWeek = rateV,
             activityLevel = activity,
             fatWarnGramsPerMeal = fatV,
+            // Typing a different number means the user chose it, not the default.
+            fatLimitFromDoctor = base.fatLimitFromDoctor || fatV != base.fatWarnGramsPerMeal,
+            focus = Focus.toCsv(focus),
+            detailLevel = detailLevel,
             conditions = Condition.toCsv(conditions),
             allergens = Allergen.toCsv(allergens),
             customAllergens = CustomAllergen.toCsv(
@@ -268,6 +278,45 @@ fun TabSetupView(
             listOf("sedentary", "light", "moderate", "active", "very_active"),
             d.activity
         ) { v -> edit { it.copy(activity = v) } }
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
+        SectionLabel("Home screen")
+        Text(
+            "What you want help with decides what the Log screen shows.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        Focus.values().forEach { f ->
+            val on = f in d.focus
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { edit { it.copy(focus = if (on) it.focus - f else it.focus + f) } }
+                    .background(if (on) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    f.title,
+                    fontSize = 14.sp,
+                    fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    f.blurb,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+        ChoiceRow(
+            "Detail",
+            listOf(DetailLevel.SIMPLE.key, DetailLevel.DETAILED.key),
+            d.detailLevel
+        ) { v -> edit { it.copy(detailLevel = v) } }
 
         Spacer(Modifier.height(4.dp))
         Hairline()

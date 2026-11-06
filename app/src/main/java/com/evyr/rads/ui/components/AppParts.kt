@@ -151,39 +151,42 @@ fun AppTabBar(
  */
 @Composable
 fun DialogActions(
-    secondaryText: String,
+    secondaryText: String?,
     onSecondary: () -> Unit,
     primaryText: String,
     onPrimary: () -> Unit,
-    primaryColor: Color = MaterialTheme.colorScheme.primary
+    primaryColor: Color = MaterialTheme.colorScheme.primary,
+    primaryEnabled: Boolean = true
 ) {
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
     ) {
-        Box(
-            Modifier
-                .heightIn(min = 48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onSecondary)
-                .padding(horizontal = 16.dp),
-            contentAlignment = androidx.compose.ui.Alignment.Center
-        ) {
-            Text(
-                secondaryText,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
+        if (secondaryText != null) {
+            Box(
+                Modifier
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onSecondary)
+                    .padding(horizontal = 16.dp),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                Text(
+                    secondaryText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
         }
-        Spacer(Modifier.width(8.dp))
         Box(
             Modifier
                 .weight(1f)
                 .heightIn(min = 48.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(primaryColor)
-                .clickable(onClick = onPrimary),
+                .background(if (primaryEnabled) primaryColor else primaryColor.copy(alpha = 0.35f))
+                .clickable(enabled = primaryEnabled, onClick = onPrimary),
             contentAlignment = androidx.compose.ui.Alignment.Center
         ) {
             Text(

@@ -38,8 +38,35 @@ data class UserProfile(
     val allergens: String = "",
     /** Free-text allergens the user typed in that aren't in the common list. */
     val customAllergens: String = "",
-    val onboarded: Boolean = false
+    val onboarded: Boolean = false,
+    /** Comma-separated Focus keys picked in onboarding. Empty = predates onboarding choices. */
+    val focus: String = "",
+    /** "simple" or "detailed" (see DetailLevel). */
+    val detailLevel: String = "detailed",
+    /**
+     * True when the user entered the fat limit themselves (e.g. from their
+     * doctor). False means [fatWarnGramsPerMeal] is the general starting point.
+     */
+    val fatLimitFromDoctor: Boolean = false
 ) {
+    fun focusSet(): Set<Focus> = Focus.parse(focus)
+
+    fun homeLayout(): HomeLayout {
+        val f = focusSet()
+        val legacy = f.isEmpty()
+        val usesSafety = Focus.CONDITION in f || Focus.ALLERGY in f ||
+            conditions.isNotBlank() || allergens.isNotBlank()
+        val wantsNumbers = legacy || Focus.WEIGHT in f || Focus.MUSCLE in f
+        val muscle = Focus.MUSCLE in f
+        return HomeLayout(
+            showCheckHero = usesSafety,
+            showCalorieRing = wantsNumbers,
+            proteinShare = if (muscle) 0.30 else 0.24,
+            carbShare = if (muscle) 0.40 else 0.44,
+            simple = DetailLevel.fromKey(detailLevel) == DetailLevel.SIMPLE
+        )
+    }
+
     fun bmr(): Double {
         if (weightKg <= 0 || heightCm <= 0 || age <= 0) return 0.0
         val base = (10 * weightKg) + (6.25 * heightCm) - (5 * age)

@@ -102,6 +102,7 @@ fun MealAccordionCard(
     allergens: Set<Allergen>,
     customAllergens: List<CustomAllergen>,
     safeKeys: Set<String>,
+    simple: Boolean = false,
     onToggleSafe: (FoodLogEntry) -> Unit,
     onToggle: () -> Unit,
     onSelectEntry: (FoodLogEntry) -> Unit,
@@ -229,6 +230,7 @@ fun MealAccordionCard(
                         allergens = allergens,
                         customAllergens = customAllergens,
                         isSafe = SafeFood.keyFor(entry.name) in safeKeys,
+                        simple = simple,
                         onToggleSafe = { onToggleSafe(entry) },
                         onClick = { onSelectEntry(entry) },
                         onDelete = { onDeleteEntry(entry) }
@@ -280,6 +282,7 @@ private fun FoodRow(
     allergens: Set<Allergen>,
     customAllergens: List<CustomAllergen>,
     isSafe: Boolean,
+    simple: Boolean = false,
     onToggleSafe: () -> Unit,
     onClick: () -> Unit,
     onDelete: () -> Unit
@@ -325,11 +328,25 @@ private fun FoodRow(
                     fontWeight = FontWeight.Medium,
                     color = if (worst == Verdict.OVER_LIMIT) error else onSurface
                 )
-                Text(
-                    if (isSafe) "$sub \u00B7 Safe" else sub,
-                    fontSize = 12.sp,
-                    color = onSurface.copy(alpha = 0.6f)
-                )
+                if (simple) {
+                    // Plain verdict instead of grams: okay / be careful / skip, with the first reason.
+                    val reason = flags.maxByOrNull { it.severity.ordinal }?.details?.firstOrNull()
+                    val (word, tone) = when {
+                        allergyHits.isNotEmpty() -> "Skip: allergy match" to error
+                        worst == Verdict.OVER_LIMIT -> "Better to skip" to error
+                        worst == Verdict.CAUTION ->
+                            (if (reason != null) "Be careful: $reason" else "Be careful") to
+                                severityColor(Verdict.CAUTION)
+                        else -> "Okay" to onSurface.copy(alpha = 0.6f)
+                    }
+                    Text(word, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = tone)
+                } else {
+                    Text(
+                        if (isSafe) "$sub \u00B7 Safe" else sub,
+                        fontSize = 12.sp,
+                        color = onSurface.copy(alpha = 0.6f)
+                    )
+                }
                 if (allergyHits.isNotEmpty()) {
                     Text(
                         "ALLERGY: " + allergyHits.joinToString(", ") { it.label },
@@ -339,7 +356,7 @@ private fun FoodRow(
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
-                if (flags.isNotEmpty()) {
+                if (!simple && flags.isNotEmpty()) {
                     Row(Modifier.padding(top = 2.dp)) {
                         flags.forEachIndexed { i, w ->
                             if (i > 0) {
